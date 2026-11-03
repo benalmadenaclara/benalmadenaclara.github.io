@@ -643,7 +643,7 @@ form.addEventListener('click', e => {
   if (e.target.closest('[data-send]') && checkDates()) e.preventDefault();
 });
 
-// ===== Kalendář obsazenosti: availability.json obnovuje GitHub každou půlhodinu z Bookingu a z Google kalendáře =====
+// ===== Kalendář obsazenosti: availability.json obnovuje GitHub každých 10 minut z Bookingu a z Google kalendáře =====
 const calendar = document.getElementById('availability');
 const calMonths = calendar.querySelector('.cal-months');
 const calSummary = calendar.querySelector('.cal-summary');

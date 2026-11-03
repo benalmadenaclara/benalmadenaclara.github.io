@@ -10,16 +10,24 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 
 HORIZON_DAYS = 550  # jak daleko dopředu web obsazenost ukazuje (~18 měsíců)
 
 
-def fetch(url):
+def fetch(url, attempts=3):
+    """Krátký výpadek kalendáře zkusí přečkat, teprve pak úloha selže."""
     request = urllib.request.Request(url, headers={'User-Agent': 'apartment-clara-availability'})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return response.read().decode('utf-8', 'replace')
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return response.read().decode('utf-8', 'replace')
+        except OSError:  # chyby sítě i HTTP
+            if attempt == attempts:
+                raise
+            time.sleep(15)
 
 
 def to_date(value):

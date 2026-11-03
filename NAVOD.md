@@ -15,11 +15,11 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
 - `img/` – fotky pro web (zmenšené, bez GPS údajů); `favicon.svg` – ikonka
 - `availability.json` – obsazené noci pro kalendář; **přepisuje ho GitHub sám**, ručně ho neměňte
 - `tools/availability.py` – skript, který obsazenost načítá z obou kalendářů
-- `.github/workflows/web.yml` – automatická úloha: každou půlhodinu načte kalendáře a při změně web znovu zveřejní
+- `.github/workflows/web.yml` – automatická úloha: každých 10 minut načte kalendáře a při změně web znovu zveřejní
 - `PXL_*.jpg`, `Photos-1-001.zip` – zdrojové fotky z telefonu, do repozitáře ani na web se nenahrávají
 
 ## Jak funguje obsazenost
-- Booking (rezervace i ručně zavřené dny) a Google kalendář „Přímé rezervace“ se každou půlhodinu
+- Booking (rezervace i ručně zavřené dny) a Google kalendář „Přímé rezervace“ se každých 10 minut
   sloučí do `availability.json` a z něj kreslí kalendář na webu. Návštěvníci vidí jen obsazené dny, žádná jména.
 - Google kalendář „Přímé rezervace“ je zároveň importovaný do Bookingu, takže přímá rezervace zavře termín i tam.
   Booking si ho ale načítá se zpožděním – v sezóně proto termín po potvrzení zavřete v Bookingu i ručně.
