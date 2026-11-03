@@ -4,6 +4,8 @@ Jednostránkový web ve třech jazycích (CZ / EN / ES) s kalendářem obsazenos
 Adresa: **https://benalmadenaclara.github.io** – běží na GitHub Pages z repozitáře
 https://github.com/benalmadenaclara/benalmadenaclara.github.io (účet `benalmadenaclara`).
 Každá změna nahraná do větve `main` se zveřejní automaticky zhruba do minuty.
+Zatím je web skrytý před vyhledávači (řádek `<meta name="robots" content="noindex, nofollow">` v `index.html`),
+dostane se na něj jen ten, kdo má odkaz. Až má být k nalezení i přes Google, ten řádek smažte.
 Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konkrétní jazyk: `?lang=cs` (`en`, `es`).
 
 ## Soubory
