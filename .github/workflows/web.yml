@@ -27,7 +27,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # při úpravě webu se zveřejní i tehdy, když kalendáře zrovna nejdou načíst
       - name: Načíst obsazenost
@@ -57,14 +57,14 @@ jobs:
           mkdir _site
           cp -r index.html style.css script.js favicon.svg availability.json img _site/
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         if: steps.save.outputs.changed == 'true' || github.event_name != 'schedule'
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: steps.save.outputs.changed == 'true' || github.event_name != 'schedule'
         with:
           path: _site
 
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         if: steps.save.outputs.changed == 'true' || github.event_name != 'schedule'
