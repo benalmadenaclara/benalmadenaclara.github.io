@@ -1,0 +1,70 @@
+# Web Apartment Clara na GitHub Pages.
+# Každou půlhodinu načte obsazenost z Bookingu a z Google kalendáře „Přímé rezervace“
+# (adresy jsou v Settings → Secrets and variables → Actions jako BOOKING_ICAL a DIRECT_ICAL),
+# uloží ji do availability.json a při změně web znovu zveřejní. Zveřejní ho i po každé úpravě webu.
+name: Web a obsazenost
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # při úpravě webu se zveřejní i tehdy, když kalendáře zrovna nejdou načíst
+      - name: Načíst obsazenost
+        continue-on-error: ${{ github.event_name != 'schedule' }}
+        env:
+          BOOKING_ICAL: ${{ secrets.BOOKING_ICAL }}
+          DIRECT_ICAL: ${{ secrets.DIRECT_ICAL }}
+        run: python3 tools/availability.py availability.json
+
+      - name: Uložit změnu obsazenosti
+        id: save
+        run: |
+          if git diff --quiet availability.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add availability.json
+            git commit -m "Aktualizace obsazenosti"
+            git push || (git pull --rebase && git push)
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Připravit soubory webu
+        if: steps.save.outputs.changed == 'true' || github.event_name != 'schedule'
+        run: |
+          mkdir _site
+          cp -r index.html style.css script.js favicon.svg availability.json img _site/
+
+      - uses: actions/configure-pages@v5
+        if: steps.save.outputs.changed == 'true' || github.event_name != 'schedule'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.save.outputs.changed == 'true' || github.event_name != 'schedule'
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
+        if: steps.save.outputs.changed == 'true' || github.event_name != 'schedule'

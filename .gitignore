@@ -1,0 +1,9 @@
+# zdrojové fotky z telefonu (velké, s GPS údaji) – na web se nenahrávají
+PXL_*.jpg
+*.zip
+# starší fotky okolí, které web už nepoužívá
+img/okoli-colomares.jpg
+img/okoli-promenada.jpg
+img/okoli-puerto-marina.jpg
+__pycache__/
+.claude/
