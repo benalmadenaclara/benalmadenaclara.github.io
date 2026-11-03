@@ -257,6 +257,8 @@ svg.i {
   font-weight: 500;
 }
 .facts svg.i { width: 18px; height: 18px; color: var(--sea); }
+.facts .fact-price { background: var(--sun-tint); border-color: transparent; color: var(--sun-ink); font-weight: 700; }
+.facts .fact-price svg.i { color: var(--sun-ink); }
 
 .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; }
 
@@ -504,6 +506,12 @@ svg.i {
 .panel { padding: clamp(24px, 3.5vw, 40px); background: var(--wall); border-radius: 20px; box-shadow: var(--shadow); }
 .panel > p { color: var(--ink-soft); }
 .panel .checks { margin: 14px 0 28px; }
+.price-card { margin-bottom: 28px; padding: 18px 20px; border-radius: var(--radius); background: var(--sun-tint); }
+.price-label { margin: 0 0 4px; color: var(--sun-ink); font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.price-amount { margin: 0; color: var(--ink); font: 700 2.2rem/1.15 var(--display); letter-spacing: -.02em; }
+.price-unit { color: var(--ink-soft); font: 500 1rem/1 var(--sans); letter-spacing: 0; }
+.price-detail { margin: 8px 0 0; color: var(--ink-soft); font-size: .92rem; }
+.price-note { margin: 6px 0 0; color: var(--muted); font-size: .82rem; }
 .panel .checks li::before { background-color: var(--pool-tint); }
 .panel hr { margin: 28px 0; border: 0; border-top: 1px solid var(--line); }
 .direct { display: grid; gap: 10px; margin: 0 0 20px; padding: 0; list-style: none; }

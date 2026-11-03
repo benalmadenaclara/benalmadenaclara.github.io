@@ -5,6 +5,8 @@ const CONFIG = {
   whatsapp: '420602166011',   // číslo pro WhatsApp v mezinárodním formátu, bez + a mezer
   phone: '+420 602 166 011',  // telefon tak, jak se má zobrazit
   email: 'skurek.jan@seznam.cz',
+  nightlyEur: 90,             // cena za noc v eurech (česká verze ji přepočítá kurzem ČNB)
+  minNights: 4,               // minimální počet nocí (zmínka je i v textech price.detail a info.out.d)
 };
 
 const BOOKING_URL = 'https://www.booking.com/hotel/es/apartment-clara';
@@ -31,6 +33,11 @@ const T = {
     'cal.stale': 'Availability last updated on {date}. We always confirm your dates.',
     'cal.conflict': 'The selected dates overlap with booked days – please pick other dates or write to us.',
     'cal.nights': { one: 'night', other: 'nights' },
+    'cal.minStay': 'Minimum stay: {nights}.',
+    'cal.noRoom': "A minimum stay ({nights}) doesn't fit from this day – please choose another arrival day.",
+    'price.perNight': '{price} / night',
+    'price.note': 'Converted from {eur} at the Czech National Bank rate of {rate} CZK/€ ({date}).',
+    'msg.price': 'Estimated price',
   },
 
   cs: {
@@ -178,8 +185,8 @@ const T = {
     'info.title': 'Než přijedete',
     'info.in.t': 'Příjezd',
     'info.in.d': 'Od 15:00. Díky self check-inu můžete přijet i později, bez příplatku – jen nám prosím dejte vědět, kdy dorazíte.',
-    'info.out.t': 'Odjezd',
-    'info.out.d': 'Do 10:00.',
+    'info.out.t': 'Odjezd a délka pobytu',
+    'info.out.d': 'Odjezd do 10:00. Minimální délka pobytu jsou 4 noci.',
     'info.guests.t': 'Počet hostů',
     'info.guests.d': 'Maximálně 4 osoby. Přistýlky nejsou k dispozici.',
     'info.kids.t': 'Děti',
@@ -220,6 +227,14 @@ const T = {
     'cal.stale': 'Obsazenost naposledy aktualizována {date}. Termín vždy potvrdíme.',
     'cal.conflict': 'Vybraný termín zasahuje do obsazených dnů – zkuste prosím jiný, nebo nám napište.',
     'cal.nights': { one: 'noc', few: 'noci', many: 'noci', other: 'nocí' },
+    'cal.minStay': 'Minimální délka pobytu: {nights}.',
+    'cal.noRoom': 'Z tohoto dne se nevejde minimální pobyt ({nights}) – vyberte jiný den příjezdu.',
+    'price.title': 'Cena při přímé rezervaci',
+    'price.unit': 'za noc',
+    'price.detail': 'Za celý apartmán (až 4 hosté), včetně ložního prádla a ručníků. Minimální pobyt 4 noci.',
+    'price.perNight': '{price} / noc',
+    'price.note': 'Přepočteno z {eur} kurzem ČNB {rate} Kč/€ ze dne {date}.',
+    'msg.price': 'Orientační cena',
     'form.name': 'Jméno',
     'form.from': 'Příjezd',
     'form.to': 'Odjezd',
@@ -391,8 +406,8 @@ const T = {
     'info.title': 'Antes de llegar',
     'info.in.t': 'Entrada',
     'info.in.d': 'Desde las 15:00. Con el check-in autónomo también puedes llegar más tarde sin coste adicional; solo avísanos de tu hora de llegada.',
-    'info.out.t': 'Salida',
-    'info.out.d': 'Hasta las 10:00.',
+    'info.out.t': 'Salida y estancia mínima',
+    'info.out.d': 'Salida hasta las 10:00. La estancia mínima es de 4 noches.',
     'info.guests.t': 'Huéspedes',
     'info.guests.d': 'Máximo 4 personas. No hay camas supletorias.',
     'info.kids.t': 'Niños',
@@ -433,6 +448,14 @@ const T = {
     'cal.stale': 'Disponibilidad actualizada por última vez el {date}. Siempre confirmamos las fechas.',
     'cal.conflict': 'Las fechas elegidas coinciden con días ocupados; elige otras o escríbenos.',
     'cal.nights': { one: 'noche', other: 'noches' },
+    'cal.minStay': 'Estancia mínima: {nights}.',
+    'cal.noRoom': 'Desde este día no cabe la estancia mínima ({nights}); elige otro día de llegada.',
+    'price.title': 'Precio reservando directamente',
+    'price.unit': 'por noche',
+    'price.detail': 'Por el apartamento completo (hasta 4 huéspedes), ropa de cama y toallas incluidas. Estancia mínima de 4 noches.',
+    'price.perNight': '{price} / noche',
+    'price.note': 'Convertido desde {eur} al tipo del Banco Nacional Checo de {rate} CZK/€ ({date}).',
+    'msg.price': 'Precio orientativo',
     'form.name': 'Nombre',
     'form.from': 'Llegada',
     'form.to': 'Salida',
@@ -511,6 +534,7 @@ function applyLang(next) {
 
   document.querySelectorAll('[data-booking]').forEach(a => { a.href = `${BOOKING_URL}.${BOOKING_LANG[lang]}.html`; });
   document.querySelectorAll('[data-set-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.setLang === lang)));
+  renderPrices();
 }
 
 function applyContacts() {
@@ -608,6 +632,11 @@ function inquiryText() {
     `${text('msg.to')}: ${date(data.get('to'))}`,
     `${text('msg.guests')}: ${data.get('guests')}`,
   ];
+  const from = data.get('from');
+  const to = data.get('to');
+  if (from && to > from && nightsBetween(from, to) >= CONFIG.minNights) {
+    lines.push(`${text('msg.price')}: ${nightsLabel(nightsBetween(from, to))} · ${stayPrice(nightsBetween(from, to))}`);
+  }
   const note = data.get('msg').trim();
   if (note) lines.push('', note);
   return lines.join('\n');
@@ -619,17 +648,20 @@ function updateSendLinks() {
   form.querySelector('[data-send="email"]').href = `mailto:${CONFIG.email}?subject=${encodeURIComponent(text('msg.subject'))}&body=${message}`;
 }
 
-// Špatné pořadí dat blokuje odeslání, kolize s obsazenými dny jen upozorní (termín stejně potvrzujeme ručně)
+// Špatné pořadí dat a kratší než minimální pobyt blokují odeslání,
+// kolize s obsazenými dny jen upozorní (termín stejně potvrzujeme ručně)
 function checkDates() {
   const { from, to } = form.elements;
   const wrongOrder = Boolean(from.value && to.value && to.value <= from.value);
-  const clash = !wrongOrder && from.value && to.value && !stayIsFree(from.value, to.value);
-  formError.textContent = wrongOrder ? text('form.errDates') : clash ? text('cal.conflict') : '';
+  const tooShort = !wrongOrder && Boolean(from.value && to.value) && nightsBetween(from.value, to.value) < CONFIG.minNights;
+  const clash = !wrongOrder && !tooShort && from.value && to.value && !stayIsFree(from.value, to.value);
+  formError.textContent = wrongOrder ? text('form.errDates') : tooShort ? minStayText() : clash ? text('cal.conflict') : '';
   formError.hidden = !formError.textContent;
-  return wrongOrder;
+  return wrongOrder || tooShort;
 }
 
 function onDatesChanged() {
+  calNotice = '';
   form.elements.to.min = form.elements.from.value;
   updateSendLinks();
   checkDates();
@@ -651,6 +683,9 @@ const monthCount = () => (calendar.clientWidth >= 520 ? 2 : 1);   // dva měsíc
 const busyNights = new Set();   // každá obsazená noc jako 'RRRR-MM-DD'
 let calState = 'loading';
 let checkedOn = null;           // kdy GitHub obsazenost naposledy ověřil
+let eurCzk = null;              // kurz eura ČNB (přichází s obsazeností)
+let rateDate = null;
+let calNotice = '';             // jednorázové upozornění pod kalendářem (krátký pobyt apod.)
 let calStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
@@ -670,15 +705,49 @@ function nightsLabel(n) {
   return `${n} ${forms[new Intl.PluralRules(LOCALE[lang]).select(n)] ?? forms.other}`;
 }
 
+const nightsBetween = (first, last) => Math.round((fromIso(last) - fromIso(first)) / 864e5);
+const minStayText = () => text('cal.minStay').replace('{nights}', nightsLabel(CONFIG.minNights));
+const money = (amount, currency) =>
+  new Intl.NumberFormat(LOCALE[lang], { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+
+// Cena za noc: v češtině v korunách podle kurzu ČNB (na celé koruny), jinak v eurech
+function nightlyPrice() {
+  return lang === 'cs' && eurCzk
+    ? { amount: Math.round(CONFIG.nightlyEur * eurCzk), currency: 'CZK' }
+    : { amount: CONFIG.nightlyEur, currency: 'EUR' };
+}
+
+function stayPrice(nights) {
+  const { amount, currency } = nightlyPrice();
+  return money(nights * amount, currency);
+}
+
+function renderPrices() {
+  const { amount, currency } = nightlyPrice();
+  const perNight = money(amount, currency);
+  document.querySelectorAll('[data-price="night"]').forEach(el => { el.textContent = perNight; });
+  document.querySelectorAll('[data-price="per-night"]').forEach(el => { el.textContent = text('price.perNight').replace('{price}', perNight); });
+  document.querySelectorAll('[data-price="note"]').forEach(el => {
+    el.hidden = currency !== 'CZK';
+    if (el.hidden) return;
+    el.textContent = text('price.note')
+      .replace('{eur}', money(CONFIG.nightlyEur, 'EUR'))
+      .replace('{rate}', new Intl.NumberFormat(LOCALE[lang], { minimumFractionDigits: 2, maximumFractionDigits: 3 }).format(eurCzk))
+      .replace('{date}', new Intl.DateTimeFormat(LOCALE[lang], { day: 'numeric', month: 'numeric', year: 'numeric' }).format(rateDate));
+  });
+}
+
 function calendarSummary() {
   const { from, to } = form.elements;
   const short = new Intl.DateTimeFormat(LOCALE[lang], { day: 'numeric', month: 'numeric', year: 'numeric' });
   if (calState !== 'ready') return text(calState === 'loading' ? 'cal.loading' : 'cal.error');
+  if (calNotice) return calNotice;
   if (from.value && to.value > from.value) {
-    const nights = Math.round((fromIso(to.value) - fromIso(from.value)) / 864e5);
-    return `${legend('cal.stay')}: ${short.format(fromIso(from.value))} – ${short.format(fromIso(to.value))} · ${nightsLabel(nights)}`;
+    const nights = nightsBetween(from.value, to.value);
+    if (nights < CONFIG.minNights) return minStayText();
+    return `${legend('cal.stay')}: ${short.format(fromIso(from.value))} – ${short.format(fromIso(to.value))} · ${nightsLabel(nights)} · ${stayPrice(nights)}`;
   }
-  const hint = text(from.value && !to.value ? 'cal.pickDeparture' : 'cal.hint');
+  const hint = from.value && !to.value ? text('cal.pickDeparture') : `${text('cal.hint')} ${minStayText()}`;
   const stale = checkedOn && checkedOn < addDays(today, -2);
   return stale ? `${hint} ${text('cal.stale').replace('{date}', short.format(checkedOn))}` : hint;
 }
@@ -686,7 +755,9 @@ function calendarSummary() {
 function renderCalendar() {
   calendar.className = `availability is-${calState}`;
   calSummary.textContent = calendarSummary();
-  calSummary.classList.toggle('is-set', calState === 'ready' && form.elements.to.value > form.elements.from.value && Boolean(form.elements.from.value));
+  const [chosenFrom, chosenTo] = [form.elements.from.value, form.elements.to.value];
+  calSummary.classList.toggle('is-set', calState === 'ready' && !calNotice && Boolean(chosenFrom) && chosenTo > chosenFrom
+    && nightsBetween(chosenFrom, chosenTo) >= CONFIG.minNights);
   calMonths.innerHTML = '';
   if (calState !== 'ready') return;
 
@@ -732,15 +803,19 @@ function renderCalendar() {
   calendar.querySelector('[data-cal="next"]').disabled = calStart >= new Date(thisMonth.getFullYear(), thisMonth.getMonth() + 16, 1);
 }
 
-// první klik = příjezd, druhý (pozdější a bez obsazených nocí mezi) = odjezd
+// první klik = příjezd (musí se vejít minimální pobyt), druhý = odjezd (pozdější, bez obsazených nocí mezi)
 calMonths.addEventListener('click', e => {
   const day = e.target.closest('.cal-day');
   if (!day || day.disabled) return;
   const key = day.dataset.date;
   const { from, to } = form.elements;
+  const minEnd = first => isoDate(addDays(fromIso(first), CONFIG.minNights));
+  const notice = message => { calNotice = message; renderCalendar(); };
   if (from.value && !to.value && key > from.value && stayIsFree(from.value, key)) {
+    if (key < minEnd(from.value)) return notice(minStayText());
     to.value = key;
   } else if (!busyNights.has(key)) {
+    if (!stayIsFree(key, minEnd(key))) return notice(text('cal.noRoom').replace('{nights}', nightsLabel(CONFIG.minNights)));
     from.value = key;
     to.value = '';
   } else {
@@ -753,6 +828,7 @@ calendar.querySelector('.cal-nav').addEventListener('click', e => {
   const step = { prev: -1, next: 1 }[e.target.closest('[data-cal]')?.dataset.cal];
   if (!step) return;
   calStart = new Date(calStart.getFullYear(), calStart.getMonth() + step, 1);
+  calNotice = '';
   renderCalendar();
 });
 let shownMonths = 0;
@@ -770,11 +846,15 @@ async function loadAvailability() {
       for (let d = fromIso(first); isoDate(d) < last; d = addDays(d, 1)) busyNights.add(isoDate(d));
     }
     checkedOn = fromIso(data.checked);
+    eurCzk = data.eurCzk ?? null;
+    rateDate = data.rateDate ? fromIso(data.rateDate) : null;
     calState = 'ready';
   } catch (err) {
     console.warn('Obsazenost se nenačetla:', err);
     calState = 'error';
   }
+  renderPrices();
+  updateSendLinks();
   renderCalendar();
   checkDates();
 }

@@ -1,4 +1,5 @@
-"""Sloučí obsazenost z Bookingu a z kalendáře přímých rezervací do availability.json.
+"""Sloučí obsazenost z Bookingu a z kalendáře přímých rezervací do availability.json
+a přidá k ní denní kurz eura ČNB (podle něj web v češtině ukazuje ceny v korunách).
 
 Adresy kalendářů se berou z proměnných prostředí BOOKING_ICAL a DIRECT_ICAL. Na GitHubu jsou
 uložené jako tajné hodnoty repozitáře, takže nejsou v kódu ani na webu. Do výstupu jdou jen
@@ -15,6 +16,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 
 HORIZON_DAYS = 550  # jak daleko dopředu web obsazenost ukazuje (~18 měsíců)
+CNB_RATES = 'https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt'
 
 
 def fetch(url, attempts=3):
@@ -64,8 +66,25 @@ def merge(ranges, today, horizon):
     return merged
 
 
+def eur_rate(previous):
+    """Kurz eura ČNB; když se nenačte, zůstane poslední známý (kvůli kurzu úloha neselže)."""
+    try:
+        text = fetch(CNB_RATES, attempts=2)  # první řádek: "03.11.2026 #211", pak "EMU|euro|1|EUR|24,340"
+        day = datetime.strptime(text.split()[0], '%d.%m.%Y').date()
+        rate = next(float(line.split('|')[4].replace(',', '.')) for line in text.splitlines() if '|EUR|' in line)
+        return {'eurCzk': rate, 'rateDate': day.isoformat()}
+    except Exception as err:
+        print(f'Kurz ČNB se nenačetl ({err}), zůstává předchozí.', file=sys.stderr)
+        return {key: previous[key] for key in ('eurCzk', 'rateDate') if key in previous}
+
+
 def main(out_path):
     today = datetime.now(timezone.utc).date()
+    try:
+        with open(out_path, encoding='utf-8') as f:
+            previous = json.load(f)
+    except (OSError, ValueError):
+        previous = {}
     ranges = []
     for name in ('BOOKING_ICAL', 'DIRECT_ICAL'):
         url = os.environ.get(name)
@@ -75,6 +94,7 @@ def main(out_path):
     busy = merge(ranges, today, today + timedelta(days=HORIZON_DAYS))
     data = {
         'checked': today.isoformat(),  # mění se denně, podle toho web pozná zastaralá data
+        **eur_rate(previous),
         'busy': [[first.isoformat(), last.isoformat()] for first, last in busy],
     }
     with open(out_path, 'w', encoding='utf-8') as f:

@@ -28,6 +28,14 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
   `BOOKING_ICAL` a `DIRECT_ICAL`. Když se změní (např. nová tajná adresa Google kalendáře), přepište je tam.
 - Kalendář na webu je orientační, rezervaci vždy potvrzujete ručně.
 
+## Ceny
+- Cena za noc (90 €) a minimální počet nocí (4) jsou v `script.js` v `CONFIG` (`nightlyEur`, `minNights`).
+  Když změníte minimální pobyt, upravte i texty `price.detail` a `info.out.d`
+  (anglicky v `index.html`, česky a španělsky v `script.js`).
+- Česká verze ukazuje ceny v korunách: eura přepočítá denním kurzem ČNB (na celé koruny), který automatická
+  úloha ukládá do `availability.json`. Angličtina a španělština ukazují eura.
+- Kalendář po výběru termínu spočítá orientační cenu a vloží ji i do poptávky.
+
 ## Úprava textu
 Každý text má klíč, např. `data-i18n="apt.text"`. Anglická verze je v `index.html`,
 česká a španělská pod stejným klíčem v `script.js`. Při změně upravte všechny tři.

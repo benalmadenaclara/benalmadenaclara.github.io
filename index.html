@@ -93,6 +93,7 @@
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
   <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></symbol>
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
@@ -140,6 +141,7 @@
           <li><svg class="i" aria-hidden="true"><use href="#i-bed"/></svg><span data-i18n="fact.bedrooms">2 bedrooms</span></li>
           <li><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="fact.guests">Up to 4 guests</span></li>
           <li><svg class="i" aria-hidden="true"><use href="#i-pool"/></svg><span data-i18n="fact.pool">Pool &amp; garden</span></li>
+          <li class="fact-price"><svg class="i" aria-hidden="true"><use href="#i-tag"/></svg><span data-price="per-night">€90 / night</span></li>
         </ul>
         <div class="hero-cta">
           <a class="btn btn-primary" href="#contact" data-i18n="cta.direct">Book direct</a>
@@ -385,7 +387,7 @@
       </div>
       <div class="info-grid">
         <div class="info-item"><svg class="i" aria-hidden="true"><use href="#i-key"/></svg><h3 data-i18n="info.in.t">Check-in</h3><p data-i18n="info.in.d">From 15:00. With self check-in you can also arrive later at no extra charge – just let us know when to expect you.</p></div>
-        <div class="info-item"><svg class="i" aria-hidden="true"><use href="#i-logout"/></svg><h3 data-i18n="info.out.t">Check-out</h3><p data-i18n="info.out.d">By 10:00.</p></div>
+        <div class="info-item"><svg class="i" aria-hidden="true"><use href="#i-logout"/></svg><h3 data-i18n="info.out.t">Check-out &amp; minimum stay</h3><p data-i18n="info.out.d">Check-out by 10:00. The minimum stay is 4 nights.</p></div>
         <div class="info-item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><h3 data-i18n="info.guests.t">Guests</h3><p data-i18n="info.guests.d">Up to 4 people. Extra beds are not available.</p></div>
         <div class="info-item"><svg class="i" aria-hidden="true"><use href="#i-baby"/></svg><h3 data-i18n="info.kids.t">Children</h3><p data-i18n="info.kids.d">Children of all ages are welcome. A baby cot (0–3 years) is free on request.</p></div>
         <div class="info-item"><svg class="i" aria-hidden="true"><use href="#i-pool"/></svg><h3 data-i18n="info.pool.t">Pool</h3><p data-i18n="info.pool.d">The outdoor pool in the garden of the complex is open from mid-June to the end of September.</p></div>
@@ -461,6 +463,12 @@
         </form>
 
         <div class="panel">
+          <div class="price-card">
+            <p class="price-label" data-i18n="price.title">Direct booking price</p>
+            <p class="price-amount"><span data-price="night">€90</span> <span class="price-unit" data-i18n="price.unit">per night</span></p>
+            <p class="price-detail" data-i18n="price.detail">For the whole apartment (up to 4 guests), bed linen and towels included. Minimum stay 4 nights.</p>
+            <p class="price-note" data-price="note" hidden></p>
+          </div>
           <h3 data-i18n="direct.title">Why book direct</h3>
           <ul class="checks">
             <li data-i18n="direct.p1">You deal with us personally – in English, Spanish or Czech</li>
