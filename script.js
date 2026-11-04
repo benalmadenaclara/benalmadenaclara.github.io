@@ -2,9 +2,12 @@
 
 // ===== KONTAKTY (prázdný text = položka se na webu skryje) =====
 const CONFIG = {
-  whatsapp: '420602166011',   // číslo pro WhatsApp v mezinárodním formátu, bez + a mezer
+  whatsapp: '',               // WhatsApp zatím skrytý; zapne se vrácením čísla '420602166011'
   phone: '+420 602 166 011',  // telefon tak, jak se má zobrazit
-  email: 'skurek.jan@seznam.cz',
+  email: 'benalmadena.clara@gmail.com',
+  // adresa Google skriptu (tools/poptavky.gs), který pošle potvrzení hostovi a poptávku nám;
+  // dokud je prázdná, formulář jen otevře e-mail hosta s předvyplněnou zprávou
+  inquiryUrl: '',
   nightlyEur: 90,             // cena za noc v eurech (česká verze ji přepočítá kurzem ČNB)
   minNights: 4,               // minimální počet nocí (zmínka je i v textech price.detail a info.out.d)
 };
@@ -20,6 +23,12 @@ const ATTRS = ['alt', 'content', 'placeholder', 'title', 'aria-label'];
 const T = {
   en: {
     'form.errDates': 'Departure must be after arrival.',
+    'form.errName': 'Please fill in your name.',
+    'form.errEmail': 'Please enter a valid e-mail address.',
+    'form.errNoDates': 'Please choose your arrival and departure dates.',
+    'form.sending': 'Sending…',
+    'form.done': "Thank you! We've received your request and sent a confirmation to your e-mail. We'll get back to you soon.",
+    'form.failed': "The request couldn't be sent. Please try again or write to us at {email}.",
     'msg.intro': 'Hello, we would like to book Apartment Clara directly with you.',
     'msg.name': 'Name',
     'msg.from': 'Arrival',
@@ -213,7 +222,15 @@ const T = {
     'book.text': 'Volné termíny a ceny najdete i na Booking.com, kde si pobyt můžete rovnou zarezervovat.',
     'contact.direct': 'Přímý kontakt',
     'form.title': 'Poptávka rezervace',
-    'form.intro': 'Vyberte termín v kalendáři, doplňte jméno a pošlete nám poptávku přes WhatsApp nebo e-mail. Odpovíme česky, anglicky i španělsky.',
+    'form.intro': 'Vyberte termín v kalendáři, vyplňte jméno a e-mail a pošlete nám poptávku. Na e-mail vám přijde potvrzení, že dorazila; odpovíme česky, anglicky i španělsky.',
+    'form.email': 'E-mail',
+    'form.send': 'Odeslat poptávku',
+    'form.errName': 'Vyplňte prosím jméno.',
+    'form.errEmail': 'Zadejte prosím platný e-mail.',
+    'form.errNoDates': 'Vyberte prosím termín příjezdu a odjezdu.',
+    'form.sending': 'Odesílám…',
+    'form.done': 'Děkujeme! Poptávku jsme přijali a na váš e-mail jsme poslali potvrzení. Brzy se vám ozveme.',
+    'form.failed': 'Poptávku se nepodařilo odeslat. Zkuste to prosím znovu, nebo nám napište na {email}.',
     'cal.title': 'Volné termíny',
     'cal.prev': 'Předchozí měsíc',
     'cal.next': 'Další měsíc',
@@ -239,11 +256,9 @@ const T = {
     'form.from': 'Příjezd',
     'form.to': 'Odjezd',
     'form.guests': 'Hosté',
-    'form.msg': 'Zpráva',
+    'form.msg': 'Zpráva (nepovinné)',
     'form.msgPh': 'Dobrý den, chtěli bychom se zeptat…',
-    'form.wa': 'Poslat přes WhatsApp',
-    'form.mail': 'Poslat e-mailem',
-    'form.note': 'Poptávka je nezávazná, rezervace platí až po našem potvrzení. Tlačítka otevřou WhatsApp nebo váš e-mail s předvyplněnou zprávou.',
+    'form.note': 'Poptávka je nezávazná, rezervace platí až po našem potvrzení. Vaše údaje použijeme jen k vyřízení poptávky.',
     'form.errDates': 'Odjezd musí být až po příjezdu.',
     'msg.intro': 'Dobrý den, chtěli bychom si u vás napřímo zarezervovat apartmán Clara.',
     'msg.name': 'Jméno',
@@ -434,7 +449,15 @@ const T = {
     'book.text': 'La disponibilidad y los precios también están en Booking.com, donde puedes reservar al momento.',
     'contact.direct': 'Contacto directo',
     'form.title': 'Solicitud de reserva',
-    'form.intro': 'Elige las fechas en el calendario, añade tu nombre y envíanos la solicitud por WhatsApp o e-mail. Respondemos en español, inglés o checo.',
+    'form.intro': 'Elige las fechas en el calendario, escribe tu nombre y e-mail y envíanos la solicitud. Recibirás un e-mail confirmando que ha llegado; respondemos en español, inglés o checo.',
+    'form.email': 'E-mail',
+    'form.send': 'Enviar solicitud',
+    'form.errName': 'Escribe tu nombre, por favor.',
+    'form.errEmail': 'Introduce un e-mail válido, por favor.',
+    'form.errNoDates': 'Elige las fechas de llegada y salida, por favor.',
+    'form.sending': 'Enviando…',
+    'form.done': '¡Gracias! Hemos recibido tu solicitud y te hemos enviado una confirmación por e-mail. Te responderemos pronto.',
+    'form.failed': 'No se ha podido enviar la solicitud. Inténtalo de nuevo o escríbenos a {email}.',
     'cal.title': 'Disponibilidad',
     'cal.prev': 'Mes anterior',
     'cal.next': 'Mes siguiente',
@@ -460,11 +483,9 @@ const T = {
     'form.from': 'Llegada',
     'form.to': 'Salida',
     'form.guests': 'Huéspedes',
-    'form.msg': 'Mensaje',
+    'form.msg': 'Mensaje (opcional)',
     'form.msgPh': 'Hola, queríamos preguntar…',
-    'form.wa': 'Enviar por WhatsApp',
-    'form.mail': 'Enviar por e-mail',
-    'form.note': 'La solicitud no es vinculante: la reserva es válida cuando la confirmemos. Los botones abren WhatsApp o tu correo con el mensaje ya preparado.',
+    'form.note': 'La solicitud no es vinculante: la reserva es válida cuando la confirmemos. Solo usamos tus datos para responder a tu solicitud.',
     'form.errDates': 'La salida debe ser posterior a la llegada.',
     'msg.intro': 'Hola, nos gustaría reservar Apartment Clara directamente con vosotros.',
     'msg.name': 'Nombre',
@@ -550,13 +571,11 @@ function applyContacts() {
     el.href = links[type];
     if (el.hasAttribute('data-contact-text')) el.textContent = CONFIG[type];
   });
-  document.querySelectorAll('[data-send]').forEach(b => { b.hidden = !links[b.dataset.send]; });
 }
 
 // ===== Přepínač jazyků =====
 document.querySelectorAll('[data-set-lang]').forEach(button => button.addEventListener('click', () => {
   applyLang(button.dataset.setLang);
-  updateSendLinks();
   renderCalendar();
   checkDates();
   try { localStorage.setItem('lang', lang); } catch {}
@@ -614,12 +633,21 @@ lightbox.addEventListener('touchend', e => {
   touchX = null;
 });
 
-// ===== Poptávkový formulář: tlačítka jsou odkazy na WhatsApp / e-mail s připravenou zprávou =====
+// ===== Poptávkový formulář: pošle poptávku Google skriptu (potvrzení hostovi + e-mail nám) =====
 const form = document.getElementById('inquiry');
 const formError = form.querySelector('.form-error');
+const formStatus = form.querySelector('.form-status');
+const sendButton = form.querySelector('[type="submit"]');
 const today = new Date();
 form.elements.from.min = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
+function stayPriceText() {
+  const { from, to } = form.elements;
+  const nights = from.value && to.value > from.value ? nightsBetween(from.value, to.value) : 0;
+  return nights >= CONFIG.minNights ? stayPrice(nights) : '';
+}
+
+// text poptávky pro náhradní cestu přes e-mail hosta (když není nastavený Google skript)
 function inquiryText() {
   const data = new FormData(form);
   const date = d => d
@@ -632,20 +660,11 @@ function inquiryText() {
     `${text('msg.to')}: ${date(data.get('to'))}`,
     `${text('msg.guests')}: ${data.get('guests')}`,
   ];
-  const from = data.get('from');
-  const to = data.get('to');
-  if (from && to > from && nightsBetween(from, to) >= CONFIG.minNights) {
-    lines.push(`${text('msg.price')}: ${nightsLabel(nightsBetween(from, to))} · ${stayPrice(nightsBetween(from, to))}`);
-  }
+  const price = stayPriceText();
+  if (price) lines.push(`${text('msg.price')}: ${nightsLabel(nightsBetween(data.get('from'), data.get('to')))} · ${price}`);
   const note = data.get('msg').trim();
   if (note) lines.push('', note);
   return lines.join('\n');
-}
-
-function updateSendLinks() {
-  const message = encodeURIComponent(inquiryText());
-  form.querySelector('[data-send="whatsapp"]').href = `https://wa.me/${CONFIG.whatsapp.replace(/\D/g, '')}?text=${message}`;
-  form.querySelector('[data-send="email"]').href = `mailto:${CONFIG.email}?subject=${encodeURIComponent(text('msg.subject'))}&body=${message}`;
 }
 
 // Špatné pořadí dat a kratší než minimální pobyt blokují odeslání,
@@ -663,16 +682,74 @@ function checkDates() {
 function onDatesChanged() {
   calNotice = '';
   form.elements.to.min = form.elements.from.value;
-  updateSendLinks();
   checkDates();
   renderCalendar();
 }
 
-const onFormEdit = e => (e.target.type === 'date' ? onDatesChanged() : updateSendLinks());
+// před odesláním: termín (checkDates), jméno, platný e-mail a vybrané dny
+function formIsValid() {
+  if (checkDates()) return false;
+  const { name, email, from, to } = form.elements;
+  const problem = !name.value.trim() ? 'form.errName'
+    : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()) ? 'form.errEmail'
+    : !from.value || !to.value ? 'form.errNoDates'
+    : '';
+  if (problem) {
+    formError.textContent = text(problem);
+    formError.hidden = false;
+  }
+  return !problem;
+}
+
+const showStatus = message => {
+  formStatus.textContent = message;
+  formStatus.hidden = !message;
+};
+
+const onFormEdit = e => { if (e.target.type === 'date') onDatesChanged(); };
 form.addEventListener('input', onFormEdit);
 form.addEventListener('change', onFormEdit);
-form.addEventListener('click', e => {
-  if (e.target.closest('[data-send]') && checkDates()) e.preventDefault();
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  showStatus('');
+  if (!formIsValid()) return;
+  if (!CONFIG.inquiryUrl) {
+    location.href = `mailto:${CONFIG.email}?subject=${encodeURIComponent(text('msg.subject'))}&body=${encodeURIComponent(inquiryText())}`;
+    return;
+  }
+  const data = new FormData(form);
+  sendButton.disabled = true;
+  showStatus(text('form.sending'));
+  try {
+    // obyčejný text (ne JSON hlavička), aby prohlížeč neposílal předběžný CORS dotaz, který Google neumí
+    const response = await fetch(CONFIG.inquiryUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        lang,
+        name: data.get('name').trim(),
+        email: data.get('email').trim(),
+        from: data.get('from'),
+        to: data.get('to'),
+        guests: data.get('guests'),
+        message: data.get('msg').trim(),
+        price: stayPriceText(),
+        website: data.get('website'),
+      }),
+    });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.error || 'odmítnuto');
+    form.reset();
+    onDatesChanged();
+    showStatus(text('form.done'));
+  } catch (err) {
+    console.warn('Poptávka se neodeslala:', err);
+    showStatus('');
+    formError.textContent = text('form.failed').replace('{email}', CONFIG.email);
+    formError.hidden = false;
+  } finally {
+    sendButton.disabled = false;
+  }
 });
 
 // ===== Kalendář obsazenosti: availability.json obnovuje GitHub každých 10 minut z Bookingu a z Google kalendáře =====
@@ -854,7 +931,6 @@ async function loadAvailability() {
     calState = 'error';
   }
   renderPrices();
-  updateSendLinks();
   renderCalendar();
   checkDates();
 }
@@ -862,6 +938,5 @@ async function loadAvailability() {
 document.getElementById('year').textContent = new Date().getFullYear();
 applyContacts();
 applyLang(detectLang());
-updateSendLinks();
 renderCalendar();
 loadAvailability();

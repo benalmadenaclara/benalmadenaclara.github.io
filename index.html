@@ -99,6 +99,16 @@
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
   <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
   <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="flag-cz" viewBox="0 0 30 20"><rect width="30" height="20" fill="#fff"/><rect y="10" width="30" height="10" fill="#D7141A"/><path d="M0 0 15 10 0 20Z" fill="#11457E"/></symbol>
+  <symbol id="flag-gb" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice">
+    <clipPath id="flag-gb-clip"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
+    <rect width="60" height="30" fill="#012169"/>
+    <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
+    <path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-gb-clip)" stroke="#C8102E" stroke-width="4"/>
+    <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+    <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+  </symbol>
+  <symbol id="flag-es" viewBox="0 0 30 20"><rect width="30" height="20" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/></symbol>
 </svg>
 
 <header class="site-header">
@@ -117,9 +127,9 @@
     </nav>
     <div class="header-actions">
       <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria-label="lang.label">
-        <button type="button" data-set-lang="cs" lang="cs" title="Čeština">CZ</button>
-        <button type="button" data-set-lang="en" lang="en" title="English">EN</button>
-        <button type="button" data-set-lang="es" lang="es" title="Español">ES</button>
+        <button type="button" data-set-lang="cs" lang="cs" title="Čeština"><svg class="flag" aria-hidden="true"><use href="#flag-cz"/></svg><span class="code">CZ</span></button>
+        <button type="button" data-set-lang="en" lang="en" title="English"><svg class="flag" aria-hidden="true"><use href="#flag-gb"/></svg><span class="code">EN</span></button>
+        <button type="button" data-set-lang="es" lang="es" title="Español"><svg class="flag" aria-hidden="true"><use href="#flag-es"/></svg><span class="code">ES</span></button>
       </div>
       <a class="btn btn-primary btn-sm header-cta" href="#contact" data-i18n="cta.bookShort">Book now</a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav" aria-label="Menu" data-i18n-aria-label="nav.menu">
@@ -151,7 +161,7 @@
           </a>
         </div>
         <p class="czech-badge">
-          <svg class="flag-cz" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="20" fill="#fff"/><rect y="10" width="30" height="10" fill="#D7141A"/><path d="M0 0 15 10 0 20Z" fill="#11457E"/></svg>
+          <svg class="flag-cz" aria-hidden="true"><use href="#flag-cz"/></svg>
           <span data-i18n="hero.czech">Czech hosts – happy to help in English, Spanish and Czech</span>
         </p>
       </div>
@@ -409,7 +419,7 @@
       <div class="contact-grid">
         <form class="panel inquiry" id="inquiry" novalidate>
           <h3 data-i18n="form.title">Booking request</h3>
-          <p data-i18n="form.intro">Pick your dates in the calendar, add your name and send us a request via WhatsApp or e-mail. We reply in English, Spanish or Czech.</p>
+          <p data-i18n="form.intro">Pick your dates in the calendar, fill in your name and e-mail and send the request. You'll get an e-mail confirming that it has arrived; we reply in English, Spanish or Czech.</p>
           <div class="availability" id="availability">
             <div class="avail-head">
               <p class="avail-title" data-i18n="cal.title">Availability</p>
@@ -426,9 +436,15 @@
               <span><i class="lg lg-stay"></i><span data-i18n="cal.stay">Your stay</span></span>
             </div>
           </div>
-          <div class="field">
-            <label for="f-name" data-i18n="form.name">Name</label>
-            <input id="f-name" name="name" autocomplete="name">
+          <div class="field-pair">
+            <div class="field">
+              <label for="f-name" data-i18n="form.name">Name</label>
+              <input id="f-name" name="name" autocomplete="name" maxlength="80" required>
+            </div>
+            <div class="field">
+              <label for="f-email" data-i18n="form.email">E-mail</label>
+              <input id="f-email" name="email" type="email" autocomplete="email" maxlength="120" required>
+            </div>
           </div>
           <div class="field-row">
             <div class="field">
@@ -447,19 +463,19 @@
             </div>
           </div>
           <div class="field">
-            <label for="f-msg" data-i18n="form.msg">Message</label>
-            <textarea id="f-msg" name="msg" rows="4" placeholder="Hello, we'd like to ask…" data-i18n-placeholder="form.msgPh"></textarea>
+            <label for="f-msg" data-i18n="form.msg">Message (optional)</label>
+            <textarea id="f-msg" name="msg" rows="4" maxlength="2000" placeholder="Hello, we'd like to ask…" data-i18n-placeholder="form.msgPh"></textarea>
           </div>
+          <!-- past na roboty: člověk pole nevidí, robot ho vyplní a poptávka se zahodí -->
+          <div class="hp" aria-hidden="true"><label>Website <input name="website" tabindex="-1" autocomplete="off"></label></div>
           <p class="form-error" role="alert" hidden></p>
+          <p class="form-status" role="status" hidden></p>
           <div class="form-actions">
-            <a class="btn btn-wa" data-send="whatsapp" href="https://wa.me/420602166011" target="_blank" rel="noopener">
-              <svg class="i" aria-hidden="true"><use href="#i-chat"/></svg><span data-i18n="form.wa">Send via WhatsApp</span>
-            </a>
-            <a class="btn btn-ghost" data-send="email" href="mailto:skurek.jan@seznam.cz">
-              <svg class="i" aria-hidden="true"><use href="#i-mail"/></svg><span data-i18n="form.mail">Send by e-mail</span>
-            </a>
+            <button class="btn btn-primary" type="submit">
+              <svg class="i" aria-hidden="true"><use href="#i-mail"/></svg><span data-i18n="form.send">Send request</span>
+            </button>
           </div>
-          <p class="form-note" data-i18n="form.note">The request is non-binding – the booking is valid once we confirm it. The buttons open WhatsApp or your e-mail with a pre-filled message.</p>
+          <p class="form-note" data-i18n="form.note">The request is non-binding – the booking is valid once we confirm it. We only use your details to reply to your request.</p>
         </form>
 
         <div class="panel">
@@ -479,7 +495,7 @@
           <ul class="direct">
             <li><svg class="i" aria-hidden="true"><use href="#i-phone"/></svg><a data-contact="phone" data-contact-text href="tel:+420602166011">+420 602 166 011</a></li>
             <li><svg class="i" aria-hidden="true"><use href="#i-chat"/></svg><a data-contact="whatsapp" href="https://wa.me/420602166011" target="_blank" rel="noopener">WhatsApp</a></li>
-            <li><svg class="i" aria-hidden="true"><use href="#i-mail"/></svg><a data-contact="email" data-contact-text href="mailto:skurek.jan@seznam.cz">skurek.jan@seznam.cz</a></li>
+            <li><svg class="i" aria-hidden="true"><use href="#i-mail"/></svg><a data-contact="email" data-contact-text href="mailto:benalmadena.clara@gmail.com">benalmadena.clara@gmail.com</a></li>
           </ul>
           <hr>
           <h3 data-i18n="book.title">Prefer Booking.com?</h3>
@@ -505,7 +521,7 @@
     </div>
     <p>Avenida de la Telefónica 15<br>29630 Benalmádena (Málaga)<br><span data-i18n="footer.country">Spain</span></p>
     <p><a data-contact="phone" data-contact-text href="tel:+420602166011">+420 602 166 011</a><br>
-      <a data-contact="email" data-contact-text href="mailto:skurek.jan@seznam.cz">skurek.jan@seznam.cz</a><br>
+      <a data-contact="email" data-contact-text href="mailto:benalmadena.clara@gmail.com">benalmadena.clara@gmail.com</a><br>
       <span data-i18n="footer.reg">Registration no.</span>: CRU 29035000059432</p>
   </div>
   <div class="container footer-bottom">

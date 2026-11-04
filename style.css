@@ -181,7 +181,9 @@ svg.i {
   letter-spacing: .06em;
   cursor: pointer;
 }
+.lang-switch button { display: inline-flex; align-items: center; gap: 6px; }
 .lang-switch button:hover { color: var(--ink); }
+.flag { width: 18px; height: 12px; flex: none; border-radius: 2px; box-shadow: 0 0 0 1px rgba(14, 42, 59, .15); }
 .lang-switch button[aria-pressed="true"] { background: var(--wall); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
 
 .nav-toggle {
@@ -224,6 +226,10 @@ svg.i {
   .brand-name { font-size: 1.12rem; }
   .lang-switch button { padding: 7px 8px; }
   .nav-toggle { width: 40px; height: 40px; }
+}
+@media (max-width: 480px) {
+  .lang-switch .code { display: none; }   /* na úzkém mobilu stačí vlajky */
+  .lang-switch button { padding: 7px; }
 }
 @media (max-width: 400px) {
   .header-inner { gap: 8px; }
@@ -540,11 +546,16 @@ svg.i {
 }
 .field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 96px; gap: 12px; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.field-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 .form-error { margin: 0 0 12px; color: #B42318; font-size: .92rem; font-weight: 600; }
+.form-status { margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; background: #E3F4EA; color: var(--wa-dark); font-size: .95rem; font-weight: 600; }
+.form-actions .btn:disabled { opacity: .6; cursor: progress; }
 .form-note { margin: 14px 0 0; color: var(--muted); font-size: .85rem; }
 
 @media (max-width: 900px) { .contact-grid { grid-template-columns: 1fr; } }
 @media (max-width: 520px) {
+  .field-pair { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .field-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .field-guests { grid-column: 1 / -1; }
   .form-actions .btn { width: 100%; }

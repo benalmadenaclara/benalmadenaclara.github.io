@@ -15,6 +15,7 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
 - `img/` – fotky pro web (zmenšené, bez GPS údajů); `favicon.svg` – ikonka
 - `availability.json` – obsazené noci pro kalendář; **přepisuje ho GitHub sám**, ručně ho neměňte
 - `tools/availability.py` – skript, který obsazenost načítá z obou kalendářů
+- `tools/poptavky.gs` – Google skript, který z poptávkového formuláře pošle e-maily (viz níže)
 - `.github/workflows/web.yml` – automatická úloha: každých 10 minut načte kalendáře a při změně web znovu zveřejní
 - `PXL_*.jpg`, `Photos-1-001.zip` – zdrojové fotky z telefonu, do repozitáře ani na web se nenahrávají
 
@@ -27,6 +28,20 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
 - Adresy obou kalendářů jsou uložené na GitHubu: *Settings → Secrets and variables → Actions* jako
   `BOOKING_ICAL` a `DIRECT_ICAL`. Když se změní (např. nová tajná adresa Google kalendáře), přepište je tam.
 - Kalendář na webu je orientační, rezervaci vždy potvrzujete ručně.
+
+## Poptávkový formulář a e-maily
+- Host vyplní jméno, e-mail, termín, počet hostů a případně zprávu. Web údaje pošle Google skriptu,
+  který odešle dva e-maily ze schránky benalmadena.clara@gmail.com: hostovi potvrzení, že poptávka dorazila
+  a čeká na potvrzení (v jazyce webu), a nám poptávku se všemi údaji – odpovědí na ni píšete rovnou hostovi.
+- Nasazení skriptu (jednou, přihlášeni jako benalmadena.clara@gmail.com):
+  1. https://script.google.com → *Nový projekt*, smazat ukázkový kód a vložit obsah `tools/poptavky.gs`, uložit.
+  2. *Nasadit → Nové nasazení* → ozubené kolečko → *Webová aplikace*; *Spustit jako: Já*, *Kdo má přístup: Kdokoli* → *Nasadit*.
+  3. *Autorizovat přístup* → vybrat účet → „Google tuto aplikaci neověřil“ → *Rozšířené* → *Přejít na … (nebezpečné)* → *Povolit*
+     (je to váš vlastní skript, upozornění Google ukazuje u všech neověřených skriptů).
+  4. Zkopírovat *adresu webové aplikace* (končí na `/exec`) a vložit ji do `script.js` jako `inquiryUrl`.
+- Dokud je `inquiryUrl` prázdná, formulář jen otevře e-mailový program hosta s předvyplněnou zprávou.
+- Po úpravě skriptu: *Nasadit → Spravovat nasazení* → tužka → *Verze: Nová verze* → *Nasadit* (adresa se nemění).
+- WhatsApp je na webu zatím skrytý (`whatsapp: ''` v `CONFIG`); zapne se vrácením čísla `420602166011`.
 
 ## Ceny
 - Cena za noc (90 €) a minimální počet nocí (4) jsou v `script.js` v `CONFIG` (`nightlyEur`, `minNights`).
