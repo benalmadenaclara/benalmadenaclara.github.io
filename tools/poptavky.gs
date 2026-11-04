@@ -7,9 +7,10 @@
  *
  * Nasazení (přihlášeni jako benalmadena.clara@gmail.com):
  *   script.google.com → Nový projekt → vložit tento kód → Uložit
- *   → Nasadit → Nové nasazení → Typ: Webová aplikace, Spustit jako: Já, Kdo má přístup: Kdokoli
- *   → Nasadit → Autorizovat přístup → adresu webové aplikace (…/exec) vložit do script.js jako inquiryUrl.
- * Po změně kódu: Nasadit → Spravovat nasazení → upravit → Verze: Nová verze (adresa zůstane stejná).
+ *   → Implementovat → Nová implementace → Typ: Webová aplikace, Spustit jako: Já, Kdo má přístup: Kdokoli
+ *   → Implementovat → Autorizovat přístup → adresu webové aplikace (…/exec) vložit do script.js jako inquiryUrl.
+ * Po změně kódu: Implementovat → Spravovat implementace → upravit (tužka) → Verze: Nová verze
+ *   → Implementovat (adresa zůstane stejná).
  */
 
 const OWNER_EMAIL = 'benalmadena.clara@gmail.com';

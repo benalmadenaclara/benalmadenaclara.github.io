@@ -33,14 +33,18 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
 - Host vyplní jméno, e-mail, termín, počet hostů a případně zprávu. Web údaje pošle Google skriptu,
   který odešle dva e-maily ze schránky benalmadena.clara@gmail.com: hostovi potvrzení, že poptávka dorazila
   a čeká na potvrzení (v jazyce webu), a nám poptávku se všemi údaji – odpovědí na ni píšete rovnou hostovi.
-- Nasazení skriptu (jednou, přihlášeni jako benalmadena.clara@gmail.com):
+- Skript je nasazený od 4. 11. 2026 na https://script.google.com pod účtem benalmadena.clara@gmail.com,
+  jeho adresa je v `script.js` jako `inquiryUrl`. Postup, kdyby se nasazoval znovu:
   1. https://script.google.com → *Nový projekt*, smazat ukázkový kód a vložit obsah `tools/poptavky.gs`, uložit.
-  2. *Nasadit → Nové nasazení* → ozubené kolečko → *Webová aplikace*; *Spustit jako: Já*, *Kdo má přístup: Kdokoli* → *Nasadit*.
+  2. *Implementovat → Nová implementace* → ozubené kolečko → *Webová aplikace*; *Spustit jako: Já*,
+     *Kdo má přístup: Kdokoli* (ne „Kdokoli s účtem Google“) → *Implementovat*.
   3. *Autorizovat přístup* → vybrat účet → „Google tuto aplikaci neověřil“ → *Rozšířené* → *Přejít na … (nebezpečné)* → *Povolit*
      (je to váš vlastní skript, upozornění Google ukazuje u všech neověřených skriptů).
   4. Zkopírovat *adresu webové aplikace* (končí na `/exec`) a vložit ji do `script.js` jako `inquiryUrl`.
-- Dokud je `inquiryUrl` prázdná, formulář jen otevře e-mailový program hosta s předvyplněnou zprávou.
-- Po úpravě skriptu: *Nasadit → Spravovat nasazení* → tužka → *Verze: Nová verze* → *Nasadit* (adresa se nemění).
+- Po úpravě kódu skriptu: *Implementovat → Spravovat implementace* → tužka → *Verze: Nová verze* → *Implementovat*
+  (adresa zůstane stejná). *Nová implementace* by vytvořila novou adresu a tu by bylo nutné přepsat v `script.js`.
+- Kontrola, že skript běží: otevřít jeho adresu v prohlížeči – ukáže `{"ok":true,…}` a nic neodešle.
+- Kdyby `inquiryUrl` byla prázdná, formulář jen otevře e-mailový program hosta s předvyplněnou zprávou.
 - WhatsApp je na webu zatím skrytý (`whatsapp: ''` v `CONFIG`); zapne se vrácením čísla `420602166011`.
 
 ## Ceny

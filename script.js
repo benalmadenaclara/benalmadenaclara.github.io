@@ -7,7 +7,7 @@ const CONFIG = {
   email: 'benalmadena.clara@gmail.com',
   // adresa Google skriptu (tools/poptavky.gs), který pošle potvrzení hostovi a poptávku nám;
   // dokud je prázdná, formulář jen otevře e-mail hosta s předvyplněnou zprávou
-  inquiryUrl: '',
+  inquiryUrl: 'https://script.google.com/macros/s/AKfycbzMx1uGy9Y-dQa4ctcGOAseiWcZucwigxKmiCQ85OamDg6GvSkUjsPRs60go9ph4cjZpA/exec',
   nightlyEur: 90,             // cena za noc v eurech (česká verze ji přepočítá kurzem ČNB)
   minNights: 4,               // minimální počet nocí (zmínka je i v textech price.detail a info.out.d)
 };
