@@ -1,41 +1,48 @@
 /**
- * Apartment Clara – poptávky a obsazenost pro web https://benalmadenaclara.github.io
+ * Apartment Clara – poptávky, rezervace a obsazenost pro web https://benalmadenaclara.github.io
+ * (běží pod účtem benalmadena.clara@gmail.com a poštu posílá z té schránky)
  *
- * 1) Poptávka (POST): skript odešle e-maily ze schránky, pod kterou běží –
- *    hostovi potvrzení, že poptávka dorazila a čeká na potvrzení (v jazyce webu),
- *    nám na OWNER_EMAIL se všemi údaji (odpovědí na něj se píše rovnou hostovi)
- *    a krátké upozornění s postupem na osobní e-mail z vlastnosti NOTIFY_EMAIL (když je vyplněná).
- * 2) Obsazenost (GET …/exec?availability=1): skript přečte kalendář z Bookingu a Google kalendář
- *    přímých rezervací a webu vrátí jen obsazené noci, žádná jména.
- *    Kontrola: v editoru vybrat funkci testObsazenosti a kliknout na Spustit.
+ * 1) Poptávka z formuláře na webu (POST bez action): uloží rezervaci, hostovi pošle „poptávka dorazila,
+ *    čeká na potvrzení“ (bez platebních údajů) a nám upozornění s odkazem na stránku rezervace
+ *    (do OWNER_EMAIL i na NOTIFY_EMAIL).
+ * 2) Stránka rezervace.html (jen pro nás):
+ *    GET ?booking=ID → údaje, platební účet a celá e-mailová konverzace s hostem (z Gmailu),
+ *    GET ?list=1 → přehled všech rezervací,
+ *    POST s action reply | confirm | paid | unpaid | cancel | reopen → odpověď hostovi, potvrzení s QR
+ *    kódem pro platbu (QR jako vložený obrázek, zobrazí ho i Gmail), poděkování za platbu, změna stavu.
+ *    Přístup: odkaz na rezervaci nese její podpis (t), přehled klíč (key) – obojí HMAC s tajným klíčem
+ *    LINK_SECRET, který si skript vytvoří sám. Bez platného podpisu skript nic neukáže ani nepošle.
+ * 3) Hlídání (spouštěče vytvoří funkce nastavit): každých 10 minut nové e-maily od hostů → upozornění
+ *    na NOTIFY_EMAIL; každý den v 9:00 připomínka platby 1, 3 a 7 dní po potvrzení, dokud není platba
+ *    označená jako přijatá, a smazání rezervací rok po odjezdu.
+ * 4) Obsazenost (GET ?availability=1) pro kalendář na webu – jen obsazené noci, žádná jména.
  *
- * 3) Do obou e-mailů pro nás dá odkaz na stránku platba.html, která z údajů poptávky připraví
- *    potvrzení v jazyce hosta s QR kódem pro platbu (údaje jsou v odkazu za #, nikam se neposílají).
- * 4) Potvrzení (POST s action 'confirm' ze stránky platba.html): pošle ho hostovi jako HTML e-mail
- *    s QR kódem vloženým jako obrázek (cid – zobrazí ho i Gmail) a skrytou kopii nám. Poslat jde jen
- *    na adresu, ke které patří podpis (token) v odkazu; tajný klíč LINK_SECRET si skript vytvoří sám.
- *
- * Adresy kalendářů jsou tajné a osobní e-mail ani účet nemají být ve veřejném kódu, proto jsou
- * v Nastavení projektu → Vlastnosti skriptu: BOOKING_ICAL, DIRECT_ICAL, NOTIFY_EMAIL
- * a pro platby PAYMENT_IBAN (účet pro Kč), PAYMENT_NAME (majitel účtu),
- * případně PAYMENT_IBAN_EUR (jiný účet pro eura) a PAYMENT_BIC.
+ * Vlastnosti skriptu (Nastavení projektu → Vlastnosti skriptu) – tajné a osobní údaje mimo veřejný kód:
+ *   BOOKING_ICAL, DIRECT_ICAL – adresy kalendářů; NOTIFY_EMAIL – osobní e-mail pro upozornění;
+ *   PAYMENT_IBAN – účet pro platby v Kč; PAYMENT_NAME – majitel účtu; nepovinně PAYMENT_IBAN_EUR a PAYMENT_BIC.
+ *   Rezervace (b_…), LINK_SECRET a MAIL_CHECKED si tam skript ukládá sám.
  *
  * Nasazení (přihlášeni jako benalmadena.clara@gmail.com):
  *   script.google.com → Nový projekt → vložit tento kód → Uložit → doplnit Vlastnosti skriptu
- *   → Implementovat → Nová implementace → Typ: Webová aplikace, Spustit jako: Já, Kdo má přístup: Kdokoli
- *   → Implementovat → Autorizovat přístup → adresu webové aplikace (…/exec) vložit do script.js jako inquiryUrl.
- * Po změně kódu: nejdřív jednou Spustit testObsazenosti (kdyby skript potřeboval nové povolení),
- *   pak Implementovat → Spravovat implementace → upravit (tužka) → Verze: Nová verze → Implementovat
- *   (adresa zůstane stejná).
+ *   → vybrat funkci nastavit → Spustit → povolit přístup (pošle odkaz na přehled rezervací)
+ *   → Implementovat → Nová implementace → Webová aplikace, Spustit jako: Já, Kdo má přístup: Kdokoli
+ *   → adresu webové aplikace (…/exec) vložit do script.js (inquiryUrl) a rezervace.html (SCRIPT_URL).
+ * Po změně kódu: jednou Spustit funkci nastavit, pak Implementovat → Spravovat implementace → tužka
+ *   → Verze: Nová verze → Implementovat (adresa zůstane stejná).
  */
 
 const OWNER_EMAIL = 'benalmadena.clara@gmail.com';
 const SITE_URL = 'https://benalmadenaclara.github.io';
-const LIMIT_PER_EMAIL = 3;   // poptávek z jedné adresy za hodinu
-const LIMIT_TOTAL = 30;      // poptávek celkem za 6 hodin (pojistka proti zneužití)
+const PAGE_URL = SITE_URL + '/rezervace.html';
+const LIMIT_PER_EMAIL = 3;     // poptávek z jedné adresy za hodinu
+const LIMIT_TOTAL = 30;        // poptávek celkem za 6 hodin (pojistka proti zneužití)
+const LIMIT_SENDS = 30;        // e-mailů hostům ze stránky rezervace za hodinu (pojistka)
+const REMINDER_DAYS = [1, 3, 7];   // připomínky platby (dny po potvrzení)
+const KEEP_DAYS = 365;             // rezervace se smaže rok po odjezdu
 const AVAILABILITY_CACHE_SECONDS = 300;  // jak dlouho si skript pamatuje načtenou obsazenost (5 minut)
 const HORIZON_DAYS = 550;                // jak daleko dopředu web obsazenost ukazuje (jako tools/availability.py)
 const TIME_ZONE = 'Europe/Madrid';
+const OWNER_ZONE = 'Europe/Prague';      // časy v e-mailech pro nás a připomínky v 9:00
 
 const TEXTS = {
   cs: {
@@ -76,16 +83,19 @@ const TEXTS = {
   },
 };
 
+// ===== vstupy webové aplikace =====
+
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    if (data.action === 'confirm') return reply(sendConfirmation(data));   // potvrzení ze stránky platba.html
+    if (data.action) return reply(bookingAction(data));   // akce ze stránky rezervace.html
     if (data.website) return reply({ ok: true });   // skryté pole vyplnil robot – tváříme se, že je hotovo
     const request = validate(data);
     if (tooMany(request.email)) return reply({ ok: false, error: 'limit' });
-    sendToGuest(request);
-    sendToOwner(request);
-    notifyOwner(request);
+    const booking = saveBooking(newBooking(request));
+    sendToGuest(booking);
+    sendToOwner(booking);
+    notifyOwner(booking);
     return reply({ ok: true });
   } catch (err) {
     console.error(err);
@@ -93,16 +103,26 @@ function doPost(e) {
   }
 }
 
-// GET: ?availability=1 vrátí obsazenost pro kalendář na webu,
+// GET: ?availability=1 obsazenost pro kalendář, ?booking=… a ?list=1 pro stránku rezervace,
 // bez parametrů jen kontrola, že skript běží (otevření adresy v prohlížeči nic neposílá)
 function doGet(e) {
-  if (e && e.parameter && e.parameter.availability) return reply(availability());
-  return reply({ ok: true, service: 'Apartment Clara – poptávky' });
+  const p = (e && e.parameter) || {};
+  try {
+    if (p.availability) return reply(availability());
+    if (p.list) return reply(bookingList(p));
+    if (p.booking) return reply(bookingDetail(p));
+    return reply({ ok: true, service: 'Apartment Clara – poptávky' });
+  } catch (err) {
+    console.error(err);
+    return reply({ ok: false, error: String(err && err.message || err) });
+  }
 }
 
 function reply(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
 }
+
+// ===== poptávka z webu =====
 
 function validate(data) {
   const line = (value, max) => String(value || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, max);
@@ -114,14 +134,16 @@ function validate(data) {
     to: line(data.to, 10),
     guests: Math.min(4, Math.max(1, parseInt(data.guests, 10) || 1)),
     message: String(data.message || '').trim().slice(0, 2000),
-    price: /^[0-9\s .,€Kč]{1,20}$/.test(data.price || '') ? data.price : '',
+    price: /^[0-9\s .,€Kč]{1,20}$/.test(data.price || '') ? data.price : '',
   };
-  const isDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value);
   if (!request.name || /https?:|www\.|<|>/i.test(request.name)) throw new Error('jméno');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(request.email)) throw new Error('e-mail');
+  if (!isEmail(request.email)) throw new Error('e-mail');
   if (!isDate(request.from) || !isDate(request.to) || request.to <= request.from) throw new Error('termín');
   return request;
 }
+
+const isEmail = value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const isDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 function tooMany(email) {
   const cache = CacheService.getScriptCache();
@@ -143,147 +165,389 @@ function formatDate(iso, lang) {
   return lang === 'cs' ? `${d}. ${m}. ${y}` : `${d}/${m}/${y}`;
 }
 
+const datesCs = b => `${formatDate(b.from, 'cs')} – ${formatDate(b.to, 'cs')}`;
+const stampCs = iso => Utilities.formatDate(new Date(iso), OWNER_ZONE, 'd. M. yyyy H:mm');
+
 // Hostovi jde jen pevný text a údaje z formuláře bez volné zprávy,
 // aby formulář nešel zneužít k rozesílání cizího obsahu na cizí adresy.
-function sendToGuest(r) {
-  const t = TEXTS[r.lang];
-  const nights = nightsBetween(r.from, r.to);
+function sendToGuest(b) {
+  const t = TEXTS[b.lang];
+  const nights = nightsBetween(b.from, b.to);
   const lines = [
-    t.greeting(r.name), '',
+    t.greeting(b.name), '',
     t.intro, '',
     `${t.summary}:`,
-    `${t.from}: ${formatDate(r.from, r.lang)}`,
-    `${t.to}: ${formatDate(r.to, r.lang)} (${nights} ${t.nights(nights)})`,
-    `${t.guests}: ${r.guests}`,
+    `${t.from}: ${formatDate(b.from, b.lang)}`,
+    `${t.to}: ${formatDate(b.to, b.lang)} (${nights} ${t.nights(nights)})`,
+    `${t.guests}: ${b.guests}`,
   ];
-  if (r.price) lines.push(`${t.price}: ${r.price}`);
+  if (b.price) lines.push(`${t.price}: ${b.price}`);
   lines.push('', t.signature, SITE_URL);
-  MailApp.sendEmail({ to: r.email, subject: t.subject, body: lines.join('\n'), name: 'Apartment Clara', replyTo: OWNER_EMAIL });
+  GmailApp.sendEmail(b.email, t.subject, lines.join('\n'), { name: 'Apartment Clara', replyTo: OWNER_EMAIL });
 }
 
-function sendToOwner(r) {
-  const nights = nightsBetween(r.from, r.to);
+// Poptávka do schránky benalmadena.clara – bez „odpovědět hostovi“, hostovi se píše přes stránku rezervace
+// (odkaz v e-mailu nese podpis rezervace, proto nemá odejít hostovi v citaci odpovědi).
+function sendToOwner(b) {
+  const nights = nightsBetween(b.from, b.to);
   const body = [
     'Nová poptávka z webu Apartment Clara:', '',
-    `Jméno: ${r.name}`,
-    `E-mail: ${r.email}`,
-    `Příjezd: ${formatDate(r.from, 'cs')}`,
-    `Odjezd: ${formatDate(r.to, 'cs')} (${nights} ${TEXTS.cs.nights(nights)})`,
-    `Počet hostů: ${r.guests}`,
-    `Orientační cena: ${r.price || '–'}`,
-    `Jazyk webu: ${r.lang}`, '',
-    'Zpráva:', r.message || '–', '',
-    'Potvrzení s QR kódem pro platbu připravíte a hostovi odešlete tady:', paymentLink(r), '',
-    'Odpovědí na tento e-mail napíšete rovnou hostovi.',
+    `Jméno: ${b.name}`,
+    `E-mail: ${b.email}`,
+    `Příjezd: ${formatDate(b.from, 'cs')}`,
+    `Odjezd: ${formatDate(b.to, 'cs')} (${nights} ${TEXTS.cs.nights(nights)})`,
+    `Počet hostů: ${b.guests}`,
+    `Orientační cena: ${b.price || '–'}`,
+    `Jazyk webu: ${b.lang}`, '',
+    'Zpráva hosta:', b.message || '–', '',
+    'Rezervaci vyřídíte tady – odpověď hostovi, potvrzení s platebními údaji a QR kódem, označení platby:',
+    bookingLink(b), '',
     'Po potvrzení hned zavřete termín v Bookingu a zapište pobyt do Google kalendáře „Přímé rezervace“ (celodenní událost od příjezdu do posledního nocování).',
+    'Tento e-mail hostovi nepřeposílejte (odkaz je jen pro nás).',
   ].join('\n');
-  MailApp.sendEmail({
-    to: OWNER_EMAIL,
-    subject: `Poptávka ${formatDate(r.from, 'cs')} – ${formatDate(r.to, 'cs')}, ${r.guests} os. – ${r.name}`,
-    body,
-    name: 'Web Apartment Clara',
-    replyTo: r.email,
-  });
+  GmailApp.sendEmail(OWNER_EMAIL, `Poptávka ${datesCs(b)}, ${b.guests} os. – ${b.name}`, body, { name: 'Web Apartment Clara' });
 }
 
-// Krátké upozornění s postupem na osobní e-mail (vlastnost skriptu NOTIFY_EMAIL; prázdná = nic se neposílá).
-// Odpověď na něj jde do schránky OWNER_EMAIL, ne hostovi – hostovi se odpovídá odtamtud.
-// Když se upozornění nepodaří odeslat, poptávka platí dál (host má potvrzení a my poptávku).
-function notifyOwner(r) {
-  const to = PropertiesService.getScriptProperties().getProperty('NOTIFY_EMAIL');
-  if (!to) return;
-  const nights = nightsBetween(r.from, r.to);
-  const dates = `${formatDate(r.from, 'cs')} – ${formatDate(r.to, 'cs')}`;
-  const lines = [
-    `Na webu přišla nová poptávka: ${r.name}, ${dates} (${nights} ${TEXTS.cs.nights(nights)}), ${r.guests} os.${r.price ? `, orientačně ${r.price}` : ''}.`,
-  ];
-  if (r.message) lines.push('', 'Zpráva hosta:', r.message);
-  lines.push(
+// Upozornění na osobní e-mail (NOTIFY_EMAIL); když není vyplněný, stačí e-mail do schránky benalmadena.clara.
+function notifyOwner(b) {
+  if (!props().getProperty('NOTIFY_EMAIL')) return;
+  const nights = nightsBetween(b.from, b.to);
+  notify(`Nová poptávka ${datesCs(b)}, ${b.guests} os. – ${b.name}`, [
+    `Na webu přišla nová poptávka: ${b.name}, ${datesCs(b)} (${nights} ${TEXTS.cs.nights(nights)}), ${b.guests} os.${b.price ? `, orientačně ${b.price}` : ''}.`,
+    ...(b.message ? ['', 'Zpráva hosta:', b.message] : []),
     '',
-    'Co dál:',
-    `1. Když termín můžete potvrdit, otevřete tento odkaz. Připraví potvrzení v jazyce hosta s QR kódem pro platbu a tlačítkem Odeslat hostovi ho pošle (kopie přijde do ${OWNER_EMAIL}): ${paymentLink(r)}`,
-    '2. Hned potom termín zavřete v Bookingu (v extranetu nebo v aplikaci) – kalendář přímých rezervací si Booking stahuje až po několika hodinách.',
-    '3. Pobyt zapište do Google kalendáře „Přímé rezervace“ jako celodenní událost od příjezdu do posledního nocování.',
+    `Rezervace – odpovědět, potvrdit s platebními údaji, označit platbu: ${bookingLink(b)}`,
+    `Přehled všech rezervací: ${overviewLink()}`,
     '',
-    `Na dotazy hosta odpovídejte ze schránky ${OWNER_EMAIL} – poptávka tam čeká, stačí dát Odpovědět. Z tohoto e-mailu hostovi nepište.`,
-  );
+    'Až termín potvrdíte, hned ho zavřete v Bookingu a zapište do Google kalendáře „Přímé rezervace“.',
+  ]);
+}
+
+function notify(subject, lines) {
+  const to = props().getProperty('NOTIFY_EMAIL') || OWNER_EMAIL;
   try {
-    MailApp.sendEmail({ to, subject: `Nová poptávka ${dates}, ${r.guests} os. – ${r.name}`, body: lines.join('\n'), name: 'Web Apartment Clara' });
+    GmailApp.sendEmail(to, subject, lines.join('\n'), { name: 'Web Apartment Clara' });
   } catch (err) {
-    console.error(err);
+    console.error(err);   // upozornění je doplněk, kvůli němu nesmí spadnout poptávka ani hlídání
   }
 }
 
-// Odkaz na platba.html s údaji z poptávky a účtem z vlastností skriptu. Vše je za #, takže to prohlížeč
-// nikam neposílá; cenu bere z textu, který spočítal web („8 764 Kč“, „€450“).
-function paymentLink(r) {
-  const props = PropertiesService.getScriptProperties();
-  const amount = String(r.price || '').replace(/\D/g, '');
-  const params = {
+// ===== rezervace (ukládají se do vlastností skriptu jako b_ID) =====
+
+const props = () => PropertiesService.getScriptProperties();
+
+function newBooking(r) {
+  return {
+    id: Utilities.getUuid().replace(/-/g, '').slice(0, 12),
+    created: new Date().toISOString(),
     lang: r.lang, name: r.name, email: r.email, from: r.from, to: r.to, guests: r.guests,
-    amount, cur: amount ? (/Kč/.test(r.price) ? 'CZK' : 'EUR') : '',
-    iban: props.getProperty('PAYMENT_IBAN'), ibanEur: props.getProperty('PAYMENT_IBAN_EUR'),
-    bic: props.getProperty('PAYMENT_BIC'), holder: props.getProperty('PAYMENT_NAME'),
-    token: linkToken(r.email),
+    price: r.price, message: r.message,
+    status: 'new',   // new → confirmed → paid; nebo cancelled
+    reminders: [],
   };
-  return `${SITE_URL}/platba.html#` + Object.keys(params)
-    .filter(key => params[key])
-    .map(key => `${key}=${encodeURIComponent(params[key])}`)
-    .join('&');
 }
 
-// Potvrzení rezervace ze stránky platba.html: HTML e-mail s QR kódem mezi texty before a after
-// a textová verze (text) pro programy bez HTML. Skrytá kopie jde nám.
-function sendConfirmation(data) {
-  const email = String(data.email || '').trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !data.token || data.token !== linkToken(email)) {
-    return { ok: false, error: 'odkaz' };
+function saveBooking(b) {
+  props().setProperty('b_' + b.id, JSON.stringify(b));
+  return b;
+}
+
+function loadBooking(id) {
+  const raw = /^[a-f0-9]{8,32}$/.test(String(id)) ? props().getProperty('b_' + id) : null;
+  return raw ? JSON.parse(raw) : null;
+}
+
+function allBookings() {
+  const all = props().getProperties();
+  return Object.keys(all).filter(key => key.indexOf('b_') === 0).map(key => JSON.parse(all[key]));
+}
+
+// ===== podepsané odkazy =====
+
+function sign(value) {
+  let secret = props().getProperty('LINK_SECRET');
+  if (!secret) {
+    secret = Utilities.getUuid() + Utilities.getUuid();
+    props().setProperty('LINK_SECRET', secret);
   }
-  const cache = CacheService.getScriptCache();
-  const sent = Number(cache.get('confirm') || 0);
-  if (sent >= 20) return { ok: false, error: 'limit' };   // pojistka: nejvýš 20 potvrzení za hodinu
-  cache.put('confirm', String(sent + 1), 3600);
-  const text = value => String(value || '').slice(0, 8000);
-  const options = {
-    to: email,
-    bcc: OWNER_EMAIL,
-    replyTo: OWNER_EMAIL,
-    name: 'Apartment Clara',
-    subject: String(data.subject || 'Apartment Clara').replace(/\s+/g, ' ').trim().slice(0, 150),
-    body: text(data.text),
+  return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(value, secret)).slice(0, 22);
+}
+
+const bookingToken = id => sign('booking:' + id);
+const adminKey = () => sign('admin');
+const bookingLink = b => `${PAGE_URL}#id=${b.id}&t=${bookingToken(b.id)}`;
+const overviewLink = () => `${PAGE_URL}#key=${adminKey()}`;
+
+// rezervace, pokud odkaz nese její podpis (t) nebo klíč k přehledu (key)
+function authorized(p) {
+  const booking = loadBooking(p.id || p.booking || '');
+  if (!booking) return null;
+  const admin = Boolean(p.key) && p.key === adminKey();
+  if (!admin && (!p.t || p.t !== bookingToken(booking.id))) return null;
+  return { booking, admin };
+}
+
+// ===== stránka rezervace: čtení =====
+
+function bookingDetail(p) {
+  const access = authorized(p);
+  if (!access) return { ok: false, error: 'odkaz' };
+  const b = access.booking;
+  if (b.unread) {
+    b.unread = false;
+    saveBooking(b);
+  }
+  const P = props();
+  return {
+    ok: true,
+    admin: access.admin,
+    booking: b,
+    history: history(b),
+    bank: {
+      iban: P.getProperty('PAYMENT_IBAN') || '',
+      ibanEur: P.getProperty('PAYMENT_IBAN_EUR') || '',
+      bic: P.getProperty('PAYMENT_BIC') || '',
+      holder: P.getProperty('PAYMENT_NAME') || '',
+    },
   };
+}
+
+function bookingList(p) {
+  if (!p.key || p.key !== adminKey()) return { ok: false, error: 'odkaz' };
+  const fields = ['id', 'created', 'name', 'email', 'from', 'to', 'guests', 'price', 'lang', 'status',
+    'confirmedAt', 'paidAt', 'cancelledAt', 'unread', 'lastGuestAt'];
+  return { ok: true, bookings: allBookings().map(b => Object.fromEntries(fields.map(field => [field, b[field]]))) };
+}
+
+// Celá e-mailová konverzace s hostem (odeslané i přijaté) + zpráva z formuláře na začátku
+function history(b) {
+  const email = b.email.toLowerCase();
+  const items = b.message ? [{ at: b.created, guest: true, subject: 'Zpráva z formuláře na webu', text: b.message }] : [];
+  const seen = {};
+  GmailApp.search(`from:${email} OR to:${email}`, 0, 30).forEach(thread => thread.getMessages().forEach(message => {
+    if (seen[message.getId()]) return;
+    seen[message.getId()] = true;
+    const from = addressOf(message.getFrom());
+    const recipients = `${message.getTo()},${message.getCc()}`.toLowerCase();
+    if (from !== email && recipients.indexOf(email) === -1) return;
+    items.push({ at: message.getDate().toISOString(), guest: from === email, subject: message.getSubject(), text: cleanBody(message.getPlainBody()) });
+  }));
+  return items.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0)).slice(-40);
+}
+
+function addressOf(header) {
+  const match = String(header || '').match(/<([^>]+)>/);
+  return (match ? match[1] : String(header || '')).trim().toLowerCase();
+}
+
+// text e-mailu bez citace předchozích zpráv („Dne … napsal:“, „On … wrote:“, řádky s >)
+function cleanBody(text) {
+  let body = '\n' + String(text || '').replace(/\r\n?/g, '\n');
+  [
+    /\n[^\n]*[\d@][^\n]*(?:wrote|napsal|escribió|schrieb|a écrit)[^\n]*:[ \t]*(?=\n|$)/i,   // „On … wrote:“ na jednom řádku
+    /\n-{2,}[ \t]*(?:Original Message|Původní e-mail|Původní zpráva|Mensaje original|Forwarded message|Přeposlaná zpráva)/i,
+    /\n_{8,}[ \t]*\n(?:From|Od|De):/i,   // Outlook
+    /\n>/,
+  ].forEach(pattern => {
+    const index = body.search(pattern);
+    if (index >= 0) body = body.slice(0, index);
+  });
+  // zbytek zalomeného úvodu citace: „napsal:“ na samostatném řádku a „Dne/On/El …“ před ním
+  body = body.replace(/\n[^\n]*(?:wrote|napsal|escribió|schrieb|a écrit)[^\n]*:[ \t]*$/i, '');
+  body = body.replace(/\n(?:On|Dne|El|Am|Le)\s[^\n]*$/, '');
+  return body.trim().slice(0, 3000);
+}
+
+// ===== stránka rezervace: akce =====
+
+function bookingAction(data) {
+  const access = authorized(data);
+  if (!access) return { ok: false, error: 'odkaz' };
+  const b = access.booking;
+  const now = new Date().toISOString();
+  const text = value => String(value || '').slice(0, 8000);
+
+  if (data.action === 'cancel') {
+    b.status = 'cancelled';
+    b.cancelledAt = now;
+  } else if (data.action === 'reopen') {
+    b.status = b.paidAt ? 'paid' : b.confirmedAt ? 'confirmed' : 'new';
+    delete b.cancelledAt;
+  } else if (data.action === 'unpaid') {
+    delete b.paidAt;
+    b.status = b.confirmedAt ? 'confirmed' : 'new';
+  } else if (['reply', 'confirm', 'paid'].indexOf(data.action) !== -1) {
+    const mail = data.action !== 'paid' || data.send !== false;
+    if (mail && tooManySends()) return { ok: false, error: 'limit' };
+    if (data.action === 'reply') {
+      if (!String(data.text || '').trim()) return { ok: false, error: 'prázdná zpráva' };
+      sendReply(b, text(data.text));
+      return { ok: true };
+    }
+    if (data.action === 'confirm') {
+      const sent = sendHtmlMail(b, { subject: data.subject, text: text(data.text), before: text(data.before), after: text(data.after), qr: data.qr });
+      if (!sent.ok) return sent;
+      const stay = data.stay || {};
+      if (isDate(stay.from) && isDate(stay.to) && stay.to > stay.from) Object.assign(b, { from: stay.from, to: stay.to });
+      if (stay.guests) b.guests = Math.min(4, Math.max(1, parseInt(stay.guests, 10) || b.guests));
+      b.pay = cleanPay(data.pay);
+      b.confirmedAt = now;
+      b.reminders = [];
+      b.status = b.paidAt ? 'paid' : 'confirmed';
+    } else {
+      if (mail) {
+        const sent = sendHtmlMail(b, { subject: data.subject, text: text(data.text), before: text(data.text), after: '' });
+        if (!sent.ok) return sent;
+      }
+      b.paidAt = now;
+      b.status = 'paid';
+    }
+  } else {
+    return { ok: false, error: 'akce' };
+  }
+  saveBooking(b);
+  return { ok: true };
+}
+
+function tooManySends() {
+  const cache = CacheService.getScriptCache();
+  const count = Number(cache.get('sends') || 0);
+  if (count >= LIMIT_SENDS) return true;
+  cache.put('sends', String(count + 1), 3600);
+  return false;
+}
+
+function cleanPay(pay) {
+  const p = pay || {};
+  const whole = value => Math.max(0, Math.round(Number(value) || 0));
+  return {
+    amount: whole(p.amount), cur: p.cur === 'EUR' ? 'EUR' : 'CZK', deposit: whole(p.deposit),
+    due: isDate(p.due) ? p.due : '', balanceDue: isDate(p.balanceDue) ? p.balanceDue : '',
+    vs: String(p.vs || '').replace(/\D/g, '').slice(0, 10),
+  };
+}
+
+// HTML e-mail hostovi: text before, případně QR kód jako vložený obrázek (cid), text after;
+// k tomu textová verze pro programy bez HTML. Odchází přes Gmail, takže je vidět v Odeslaných i v konverzaci.
+function sendHtmlMail(b, m) {
+  const options = { name: 'Apartment Clara', replyTo: OWNER_EMAIL };
   let image = '';
-  if (data.qr) {
-    const bytes = Utilities.base64Decode(String(data.qr));
+  if (m.qr) {
+    const bytes = Utilities.base64Decode(String(m.qr));
     const png = bytes.length < 300000 && bytes[0] === -119 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;   // podpis souboru PNG
     if (!png) return { ok: false, error: 'qr' };
     options.inlineImages = { qr: Utilities.newBlob(bytes, 'image/png', 'qr-platba.png') };
     image = '<p style="margin:0 0 14px"><img src="cid:qr" alt="QR" width="240" style="display:block;width:240px;max-width:100%;height:auto;border:0"></p>';
   }
-  options.htmlBody = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#0E2A3B">'
-    + toHtml(text(data.before)) + image + toHtml(text(data.after)) + '</div>';
-  MailApp.sendEmail(options);
+  options.htmlBody = htmlWrap(toHtml(m.before) + image + toHtml(m.after));
+  const subject = String(m.subject || 'Apartment Clara').replace(/\s+/g, ' ').trim().slice(0, 150);
+  GmailApp.sendEmail(b.email, subject, m.text, options);
   return { ok: true };
 }
 
-// Podpis odkazu pro adresu hosta (HMAC s tajným klíčem, který si skript při prvním použití uloží do vlastností)
-function linkToken(email) {
-  const props = PropertiesService.getScriptProperties();
-  let secret = props.getProperty('LINK_SECRET');
-  if (!secret) {
-    secret = Utilities.getUuid() + Utilities.getUuid();
-    props.setProperty('LINK_SECRET', secret);
+// Odpověď hostovi: když už nám host psal, jde jako odpověď v jeho vlákně, jinak jako nový e-mail.
+function sendReply(b, text) {
+  const options = { name: 'Apartment Clara', htmlBody: htmlWrap(toHtml(text)) };
+  const email = b.email.toLowerCase();
+  const thread = GmailApp.search(`from:${email}`, 0, 1)[0];
+  const fromGuest = thread ? thread.getMessages().filter(m => addressOf(m.getFrom()) === email) : [];
+  if (fromGuest.length) {
+    fromGuest[fromGuest.length - 1].reply(text, options);
+  } else {
+    options.replyTo = OWNER_EMAIL;
+    GmailApp.sendEmail(b.email, `Apartment Clara – ${formatDate(b.from, b.lang)} – ${formatDate(b.to, b.lang)}`, text, options);
   }
-  const signature = Utilities.computeHmacSha256Signature(String(email).trim().toLowerCase(), secret);
-  return Utilities.base64EncodeWebSafe(signature).slice(0, 22);
 }
+
+const htmlWrap = inner => `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#0E2A3B">${inner}</div>`;
 
 function toHtml(text) {
   const escape = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  return text.split(/\n{2,}/)
+  return String(text || '').split(/\n{2,}/)
     .filter(paragraph => paragraph.trim())
     .map(paragraph => `<p style="margin:0 0 14px">${escape(paragraph).replace(/\n/g, '<br>')}</p>`)
     .join('');
+}
+
+// ===== hlídání (spouštěče z funkce nastavit) =====
+
+// Každých 10 minut: nové e-maily od hostů → značka „nová zpráva“ u rezervace a upozornění na NOTIFY_EMAIL
+function kontrolaZprav() {
+  const P = props();
+  const now = Date.now();
+  const since = Number(P.getProperty('MAIL_CHECKED') || now - 3600e3) - 10 * 60e3;   // překryv kvůli zpožděné poště
+  const byEmail = {};
+  allBookings()
+    .filter(b => b.status !== 'cancelled')
+    .sort((x, y) => (x.created < y.created ? -1 : 1))
+    .forEach(b => { byEmail[b.email.toLowerCase()] = b; });   // u opakovaného hosta vyhraje nejnovější rezervace
+  const cache = CacheService.getScriptCache();
+  GmailApp.search('in:inbox -from:me newer_than:2d', 0, 50).forEach(thread => thread.getMessages().forEach(message => {
+    const at = message.getDate().getTime();
+    const b = byEmail[addressOf(message.getFrom())];
+    if (!b || at <= since || cache.get('seen_' + message.getId())) return;
+    cache.put('seen_' + message.getId(), '1', 21600);
+    b.unread = true;
+    b.lastGuestAt = new Date(at).toISOString();
+    saveBooking(b);
+    notify(`Nová zpráva od hosta: ${b.name} (${datesCs(b)})`, [
+      `${b.name} napsal(a) ${stampCs(b.lastGuestAt)}:`, '',
+      cleanBody(message.getPlainBody()).slice(0, 1500), '',
+      `Odpovědět a zobrazit celou konverzaci: ${bookingLink(b)}`,
+      `Přehled všech rezervací: ${overviewLink()}`,
+    ]);
+  }));
+  P.setProperty('MAIL_CHECKED', String(now));
+}
+
+// Každý den v 9:00: připomínky nezaplacených rezervací a smazání rezervací rok po odjezdu
+function denniKontrola() {
+  const now = Date.now();
+  const today = Utilities.formatDate(new Date(), TIME_ZONE, 'yyyy-MM-dd');
+  allBookings().forEach(b => {
+    if (b.to && addDays(b.to, KEEP_DAYS) < today) {
+      props().deleteProperty('b_' + b.id);
+      return;
+    }
+    if (b.status !== 'confirmed' || !b.confirmedAt) return;
+    const days = Math.floor((now - Date.parse(b.confirmedAt)) / 864e5);
+    const reminders = b.reminders || [];
+    const due = REMINDER_DAYS.filter(n => days >= n && reminders.indexOf(n) === -1);
+    if (!due.length) return;
+    b.reminders = reminders.concat(due);
+    saveBooking(b);
+    const pay = b.pay || {};
+    const amount = pay.deposit && pay.deposit < pay.amount ? pay.deposit : pay.amount;
+    notify(`Platba zatím neoznačená: ${b.name} (${datesCs(b)})`, [
+      `Rezervace ${b.name} (${datesCs(b)}): potvrzení s platebními údaji odešlo ${stampCs(b.confirmedAt)} (před ${days} ${days === 1 ? 'dnem' : 'dny'}), platba ale zatím není označená jako přijatá.`,
+      ...(amount ? [`Čekáme na ${groupThousands(amount)} ${pay.cur === 'EUR' ? '€' : 'Kč'}${pay.deposit && pay.deposit < pay.amount ? ' (záloha)' : ''}${pay.due ? `, splatnost ${formatDate(pay.due, 'cs')}` : ''}${pay.vs ? `, VS ${pay.vs}` : ''}.`] : []),
+      '',
+      'Zkontrolujte účet. Když peníze přišly, otevřete rezervaci a klikněte na Platba přišla – host dostane poděkování a připomínky přestanou chodit.',
+      `Rezervace: ${bookingLink(b)}`,
+      `Přehled všech rezervací: ${overviewLink()}`,
+    ]);
+  });
+}
+
+const groupThousands = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+// Spustit jednou v editoru (a po každé změně kódu): povolí přístupy, nastaví hlídání a pošle odkaz na přehled
+function nastavit() {
+  ScriptApp.getProjectTriggers()
+    .filter(trigger => ['kontrolaZprav', 'denniKontrola'].indexOf(trigger.getHandlerFunction()) !== -1)
+    .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.newTrigger('kontrolaZprav').timeBased().everyMinutes(10).create();
+  ScriptApp.newTrigger('denniKontrola').timeBased().atHour(9).everyDays(1).inTimezone(OWNER_ZONE).create();
+  if (!props().getProperty('MAIL_CHECKED')) props().setProperty('MAIL_CHECKED', String(Date.now()));
+  const link = overviewLink();
+  const recipients = [OWNER_EMAIL, props().getProperty('NOTIFY_EMAIL')].filter(Boolean).join(',');
+  GmailApp.sendEmail(recipients, 'Apartment Clara – přehled rezervací', [
+    'Odkaz na přehled všech rezervací z webu (uložte si ho do záložek a nikomu ho neposílejte):',
+    link, '',
+    'Každá nová poptávka přijde i s vlastním odkazem na rezervaci – tam je konverzace s hostem,',
+    'odpověď, potvrzení s platebními údaji a QR kódem a tlačítko Platba přišla.',
+  ].join('\n'), { name: 'Web Apartment Clara' });
+  console.log(`Hotovo: hlídání nastavené, odkaz na přehled odešel na ${recipients}: ${link}`);
 }
 
 // ===== Obsazenost: stejný výpočet jako tools/availability.py (ten plní zálohu availability.json na GitHubu) =====
@@ -293,9 +557,9 @@ function availability() {
   const cached = cache.get('availability');
   if (cached) return JSON.parse(cached);
   try {
-    const props = PropertiesService.getScriptProperties();
+    const P = props();
     const names = ['BOOKING_ICAL', 'DIRECT_ICAL'];
-    const urls = names.map(name => props.getProperty(name));
+    const urls = names.map(name => P.getProperty(name));
     names.forEach((name, i) => { if (!urls[i]) throw new Error(`Ve vlastnostech skriptu chybí ${name}.`); });
     const ranges = [];
     UrlFetchApp.fetchAll(urls.map(url => ({ url, muteHttpExceptions: true }))).forEach((response, i) => {
@@ -355,7 +619,7 @@ function addDays(iso, days) {
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
-// Kontrola v editoru: vybrat tuto funkci a kliknout na Spustit (poprvé si řekne o povolení přístupu)
+// Kontrola v editoru: vybrat tuto funkci a kliknout na Spustit
 function testObsazenosti() {
   CacheService.getScriptCache().remove('availability');
   const result = availability();
