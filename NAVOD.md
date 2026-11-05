@@ -50,7 +50,9 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
     jen od poptávky do případné další poptávky téhož hosta, bez interních upozornění pro nás),
   - **Odpovědět hostovi** – odpověď odejde z benalmadena.clara@gmail.com (když host už psal, jako odpověď v jeho vlákně),
   - **Potvrdit a poslat platební údaje** – e-mail v jazyce hosta: text, QR kód pro platbu a pod ním údaje pro ruční
-    platbu; termín, cenu, zálohu a splatnost jde upravit a náhled ukazuje přesně to, co host dostane,
+    platbu; termín, cenu, zálohu a splatnost jde upravit a náhled ukazuje přesně to, co host dostane.
+    Splatnost je výchozí 3 dny (`PAY_DAYS` v `rezervace.html`, nejpozději den před příjezdem) – v e-mailu stojí
+    „nejpozději do 3 dnů, tj. do …“ a „do té doby pro vás termín držíme“,
   - **Platba přišla** – host dostane poděkování (text jde upravit, nebo jen označit platbu bez e-mailu),
     u rezervace se objeví fajfka ✓ a připomínky přestanou chodit,
   - dole *Zrušit rezervaci* (hostovi se nic neposílá) a *Obnovit rezervaci*; zrušenou jde *Smazat natrvalo*
@@ -96,7 +98,9 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
   s `?availability=1` na konci ukáže obsazenost, kterou dostává web. Funkce `testObsazenosti` v editoru
   zkontroluje kalendáře.
 - Kdyby `inquiryUrl` byla prázdná, formulář jen otevře e-mailový program hosta s předvyplněnou zprávou.
-- WhatsApp je na webu zatím skrytý (`whatsapp: ''` v `CONFIG`); zapne se vrácením čísla `420602166011`.
+- Kontakty (telefon, WhatsApp, e-mail) jsou v `script.js` v `CONFIG`; ukazují se v sekci **Kontakt** (položka menu),
+  u formuláře, v patičce a WhatsApp i na spodní liště na mobilu. Prázdný text (např. `whatsapp: ''`) danou možnost
+  na webu všude skryje.
 
 ## Ceny
 - Cena za noc (90 €) a minimální počet nocí (4) jsou v `script.js` v `CONFIG` (`nightlyEur`, `minNights`).

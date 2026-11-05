@@ -226,9 +226,10 @@ const MAIL = {
     guests: { one: 'host', few: 'hosté', other: 'hostů' },
     price: p => `Cena pobytu: ${p}`,
     payment: 'Platba',
-    full: (amount, due) => `Prosíme o úhradu ${amount}${due ? ` do ${due}` : ''}`,
-    deposit: (amount, due) => `Prosíme o zálohu ${amount}${due ? ` do ${due}` : ''}`,
-    toAccount: ' na účet:',
+    full: (amount, due) => `Prosíme o úhradu ${amount}${due}`,
+    deposit: (amount, due) => `Prosíme o zálohu ${amount}${due}`,
+    within: (days, date) => (days > 0 ? ` nejpozději do ${days} ${days === 1 ? 'dne' : 'dnů'}, tj. do ${date}` : ` do ${date}`),
+    hold: 'Do té doby pro vás termín držíme.',
     balance: (rest, due) => `Doplatek ${rest} prosíme uhradit ${due ? `do ${due}` : 'před příjezdem'}.`,
     labels: { account: 'Číslo účtu', iban: 'IBAN', bic: 'BIC/SWIFT', vs: 'Variabilní symbol', ref: 'Zpráva pro příjemce', holder: 'Majitel účtu' },
     qrHere: { CZK: 'Nejjednodušší je naskenovat tento QR kód v bankovní aplikaci, údaje se vyplní samy:', EUR: 'Pokud vaše banka umí QR platby, stačí naskenovat tento kód:' },
@@ -259,9 +260,10 @@ const MAIL = {
     guests: { one: 'guest', other: 'guests' },
     price: p => `Price: ${p}`,
     payment: 'Payment',
-    full: (amount, due) => `Please transfer ${amount}${due ? ` by ${due}` : ''}`,
-    deposit: (amount, due) => `Please transfer a deposit of ${amount}${due ? ` by ${due}` : ''}`,
-    toAccount: ' to:',
+    full: (amount, due) => `Please transfer ${amount}${due}`,
+    deposit: (amount, due) => `Please transfer a deposit of ${amount}${due}`,
+    within: (days, date) => (days > 0 ? ` within ${days} ${days === 1 ? 'day' : 'days'} (by ${date})` : ` by ${date}`),
+    hold: "We'll hold the dates for you until then.",
     balance: (rest, due) => `The remaining ${rest} is due ${due ? `by ${due}` : 'before your arrival'}.`,
     labels: { account: 'Account', iban: 'IBAN', bic: 'BIC/SWIFT', vs: 'Variable symbol', ref: 'Reference', holder: 'Account holder' },
     qrHere: { CZK: 'If your banking app reads Czech payment QR codes, just scan this code:', EUR: 'If your banking app can read payment QR codes, just scan this code:' },
@@ -292,9 +294,10 @@ const MAIL = {
     guests: { one: 'huésped', other: 'huéspedes' },
     price: p => `Precio: ${p}`,
     payment: 'Pago',
-    full: (amount, due) => `Por favor, haz una transferencia de ${amount}${due ? ` a más tardar el ${due}` : ''}`,
-    deposit: (amount, due) => `Por favor, haz una transferencia de ${amount} como señal${due ? `, a más tardar el ${due}` : ''}`,
-    toAccount: ' a:',
+    full: (amount, due) => `Por favor, haz una transferencia de ${amount}${due}`,
+    deposit: (amount, due) => `Por favor, haz una transferencia de ${amount} como señal${due}`,
+    within: (days, date) => (days > 0 ? ` en un plazo de ${days} ${days === 1 ? 'día' : 'días'} (a más tardar el ${date})` : ` a más tardar el ${date}`),
+    hold: 'Hasta entonces te reservamos las fechas.',
     balance: (rest, due) => `El resto (${rest}) se paga ${due ? `a más tardar el ${due}` : 'antes de la llegada'}.`,
     labels: { account: 'Cuenta', iban: 'IBAN', bic: 'BIC/SWIFT', vs: 'Símbolo variable', ref: 'Concepto', holder: 'Titular' },
     qrHere: { CZK: 'Si tu app bancaria lee códigos QR de pago checos, basta con escanear este código:', EUR: 'Si tu app bancaria lee códigos QR de pago, basta con escanear este código:' },
@@ -544,7 +547,7 @@ function renderDetail(first) {
   // potvrzení
   $('confirm-state').textContent = b.confirmedAt
     ? `Potvrzení s platebními údaji odešlo ${stampCs(b.confirmedAt)}. Poslat ho znovu jde, když se třeba změní částka nebo termín.`
-    : 'Zkontrolujte termín, cenu a splatnost a pošlete hostovi potvrzení s QR kódem pro platbu. Hned potom zavřete termín v Bookingu.';
+    : 'Zkontrolujte termín, cenu a splatnost (výchozí 3 dny) a pošlete hostovi potvrzení s QR kódem pro platbu. Hned potom zavřete termín v Bookingu.';
   $('send').textContent = b.confirmedAt ? 'Poslat potvrzení znovu' : 'Potvrdit a poslat platební údaje';
   prefillForm();
 
@@ -591,10 +594,13 @@ function prefillForm() {
   f.holder.value = bank.holder || '';
 }
 
-// splatnost: za týden, nejpozději den před příjezdem
+const PAY_DAYS = 3;   // výchozí splatnost platby (dny)
+const daysUntil = iso => { const now = new Date(); return Math.round((fromIso(iso) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5); };
+
+// splatnost: za 3 dny, nejpozději den před příjezdem
 function defaultDue(from) {
   const today = new Date();
-  let due = addDays(today, 7);
+  let due = addDays(today, PAY_DAYS);
   if (from && addDays(fromIso(from), -1) < due) due = addDays(fromIso(from), -1);
   return isoDate(due < today ? today : due);
 }
@@ -669,14 +675,16 @@ function mailParts(d) {
     return { text, before: text, after: '', qr: '' };
   }
   const qr = qrPayload(d);
-  const request = (d.deposit ? t.deposit : t.full)(money(d.pay, d), d.due ? dateText(d.due, d.lang) : '');
+  // „nejpozději do 3 dnů, tj. do 8. 11. 2026. Do té doby pro vás termín držíme.“
+  const due = d.due ? t.within(daysUntil(d.due), dateText(d.due, d.lang)) : '';
+  const request = `${(d.deposit ? t.deposit : t.full)(money(d.pay, d), due)}.${d.due ? ` ${t.hold}` : ''}`;
   const details = accountLines(d, t);
   if (d.deposit) details.push(t.balance(money(d.amount - d.pay, d), d.balanceDue ? dateText(d.balanceDue, d.lang) : ''));
-  const text = [...head, '', t.payment, request + t.toAccount, ...details, ...(qr ? [t.qrAttached[d.cur]] : []), ...tail].join('\n');
+  const text = [...head, '', t.payment, request, ...details, ...(qr ? [t.qrAttached[d.cur]] : []), ...tail].join('\n');
   if (!qr) return { text, before: text, after: '', qr };
   return {
     text,
-    before: [...head, '', t.payment, `${request}.`, t.qrHere[d.cur]].join('\n'),
+    before: [...head, '', t.payment, request, t.qrHere[d.cur]].join('\n'),
     after: [t.manual, ...details, ...tail].join('\n'),
     qr,
   };

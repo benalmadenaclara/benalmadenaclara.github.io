@@ -565,6 +565,36 @@ svg.i {
   .panel { padding: 22px 18px; }
 }
 
+/* ---------- Kontakt (WhatsApp, telefon, e-mail) ---------- */
+.reach-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; max-width: 980px; margin-inline: auto; }
+.reach-card {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 28px 20px 26px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--wall);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  text-align: center;
+  text-decoration: none;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.reach-card:hover { transform: translateY(-2px); border-color: var(--sea); box-shadow: var(--shadow-lg); color: var(--ink); }
+.reach-icon { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 10px; border-radius: 50%; background: var(--pool-tint); color: var(--sea); }
+.reach-icon svg.i { width: 26px; height: 26px; }
+.reach-wa { background: #E3F4EA; color: var(--wa); }
+.reach-name { font: 700 1.15rem/1.2 var(--display); }
+.reach-value { max-width: 100%; color: var(--sea-dark); font-weight: 600; overflow-wrap: anywhere; }
+.reach-hint { color: var(--muted); font-size: .9rem; }
+@media (prefers-reduced-motion: reduce) {
+  .reach-card { transition: none; }
+  .reach-card:hover { transform: none; }
+}
+
 /* ---------- Kalendář obsazenosti (ve formuláři) ---------- */
 .availability { margin: 20px 0 22px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); }
 .avail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }

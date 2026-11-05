@@ -2,7 +2,7 @@
 
 // ===== KONTAKTY (prázdný text = položka se na webu skryje) =====
 const CONFIG = {
-  whatsapp: '',               // WhatsApp zatím skrytý; zapne se vrácením čísla '420602166011'
+  whatsapp: '420602166011',   // číslo pro WhatsApp (prázdný text = WhatsApp se na webu všude skryje)
   phone: '+420 602 166 011',  // telefon tak, jak se má zobrazit
   email: 'benalmadena.clara@gmail.com',
   // adresa Google skriptu (tools/poptavky.gs): pošle potvrzení hostovi a poptávku nám a vrací aktuální obsazenost;
@@ -59,7 +59,7 @@ const T = {
     'nav.location': 'Poloha',
     'nav.reviews': 'Hodnocení',
     'nav.info': 'Info',
-    'nav.contact': 'Rezervace',
+    'nav.contact': 'Kontakt',
     'nav.menu': 'Menu',
     'lang.label': 'Jazyk',
     'cta.bookShort': 'Rezervovat',
@@ -221,6 +221,13 @@ const T = {
     'book.title': 'Raději přes Booking.com?',
     'book.text': 'Volné termíny a ceny najdete i na Booking.com, kde si pobyt můžete rovnou zarezervovat.',
     'contact.direct': 'Přímý kontakt',
+    'reach.eyebrow': 'Kontakt',
+    'reach.title': 'Napište nebo zavolejte',
+    'reach.text': 'Máte dotaz k apartmánu, okolí nebo cestě? Ozvěte se – rádi poradíme česky, anglicky i španělsky.',
+    'reach.wa': 'Napište nám zprávu',
+    'reach.phone': 'Telefon',
+    'reach.phoneHint': 'Zavolejte nám',
+    'reach.mailHint': 'Odpovíme co nejdřív',
     'form.title': 'Poptávka rezervace',
     'form.intro': 'Vyberte termín v kalendáři, vyplňte jméno a e-mail a pošlete nám poptávku. Na e-mail vám přijde potvrzení, že dorazila; odpovíme česky, anglicky i španělsky.',
     'form.email': 'E-mail',
@@ -286,7 +293,7 @@ const T = {
     'nav.location': 'Ubicación',
     'nav.reviews': 'Opiniones',
     'nav.info': 'Info',
-    'nav.contact': 'Reservas',
+    'nav.contact': 'Contacto',
     'nav.menu': 'Menú',
     'lang.label': 'Idioma',
     'cta.bookShort': 'Reservar',
@@ -448,6 +455,13 @@ const T = {
     'book.title': '¿Prefieres Booking.com?',
     'book.text': 'La disponibilidad y los precios también están en Booking.com, donde puedes reservar al momento.',
     'contact.direct': 'Contacto directo',
+    'reach.eyebrow': 'Contacto',
+    'reach.title': 'Escríbenos o llámanos',
+    'reach.text': '¿Tienes alguna pregunta sobre el apartamento, la zona o el viaje? Escríbenos o llámanos: te ayudamos en español, inglés o checo.',
+    'reach.wa': 'Envíanos un mensaje',
+    'reach.phone': 'Teléfono',
+    'reach.phoneHint': 'Llámanos',
+    'reach.mailHint': 'Te responderemos lo antes posible',
     'form.title': 'Solicitud de reserva',
     'form.intro': 'Elige las fechas en el calendario, escribe tu nombre y e-mail y envíanos la solicitud. Recibirás un e-mail confirmando que ha llegado; respondemos en español, inglés o checo.',
     'form.email': 'E-mail',
@@ -571,6 +585,8 @@ function applyContacts() {
     el.href = links[type];
     if (el.hasAttribute('data-contact-text')) el.textContent = CONFIG[type];
   });
+  // číslo nebo adresa uvnitř karet v sekci Kontakt (WhatsApp ukazuje stejné číslo jako telefon)
+  document.querySelectorAll('[data-contact-value]').forEach(el => { el.textContent = CONFIG[el.dataset.contactValue] || ''; });
 }
 
 // ===== Přepínač jazyků =====
