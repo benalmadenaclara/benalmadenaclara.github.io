@@ -276,6 +276,6 @@ function testObsazenosti() {
   CacheService.getScriptCache().remove('availability');
   const result = availability();
   console.log(result.ok
-    ? `V pořádku: ${result.busy.length} obsazených období, nejbližší ${result.busy.length ? result.busy[0].join(' až ') : '–'}.`
+    ? `V pořádku – obsazená období: ${result.busy.length}, nejbližší ${result.busy.length ? result.busy[0].join(' až ') : '–'}.`
     : 'Obsazenost se nenačetla, důvod je na řádku výš.');
 }
