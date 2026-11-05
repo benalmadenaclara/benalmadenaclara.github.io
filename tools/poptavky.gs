@@ -8,10 +8,11 @@
  * 2) Stránka rezervace.html (jen pro nás):
  *    GET ?booking=ID → údaje, platební účet a celá e-mailová konverzace s hostem (z Gmailu),
  *    GET ?list=1 → přehled všech rezervací,
- *    POST s action reply | confirm | paid | unpaid | cancel | reopen → odpověď hostovi, potvrzení s QR
- *    kódem pro platbu (QR jako vložený obrázek, zobrazí ho i Gmail), poděkování za platbu, změna stavu.
- *    Přístup: odkaz na rezervaci nese její podpis (t), přehled klíč (key) – obojí HMAC s tajným klíčem
- *    LINK_SECRET, který si skript vytvoří sám. Bez platného podpisu skript nic neukáže ani nepošle.
+ *    POST s action reply | confirm | paid | unpaid | cancel | reopen | delete → odpověď hostovi, potvrzení
+ *    s QR kódem pro platbu (QR jako vložený obrázek, zobrazí ho i Gmail), poděkování za platbu, změna stavu,
+ *    smazání zrušené rezervace.
+ *    Přístup: odkazy v našich e-mailech nesou klíč k přehledu (key), starší odkazy podpis jedné rezervace (t)
+ *    – obojí HMAC s tajným klíčem LINK_SECRET, který si skript vytvoří sám. Bez nich skript nic neukáže ani nepošle.
  * 3) Hlídání (spouštěče vytvoří funkce nastavit): každých 10 minut nové e-maily od hostů → upozornění
  *    na NOTIFY_EMAIL; každý den v 9:00 připomínka platby 1, 3 a 7 dní po potvrzení, dokud není platba
  *    označená jako přijatá, a smazání rezervací rok po odjezdu.
@@ -273,9 +274,10 @@ function sign(value) {
   return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(value, secret)).slice(0, 22);
 }
 
-const bookingToken = id => sign('booking:' + id);
+const bookingToken = id => sign('booking:' + id);   // starší odkazy na jednu rezervaci (#id=…&t=…) platí dál
 const adminKey = () => sign('admin');
-const bookingLink = b => `${PAGE_URL}#id=${b.id}&t=${bookingToken(b.id)}`;
+// odkaz z našich e-mailů otevře rezervaci i přehled ostatních (proto ho nikomu nepřeposílat)
+const bookingLink = b => `${PAGE_URL}#key=${adminKey()}&id=${b.id}`;
 const overviewLink = () => `${PAGE_URL}#key=${adminKey()}`;
 
 // rezervace, pokud odkaz nese její podpis (t) nebo klíč k přehledu (key)
@@ -319,18 +321,26 @@ function bookingList(p) {
   return { ok: true, bookings: allBookings().map(b => Object.fromEntries(fields.map(field => [field, b[field]]))) };
 }
 
-// Celá e-mailová konverzace s hostem (odeslané i přijaté) + zpráva z formuláře na začátku
+// E-mailová konverzace s hostem k této rezervaci (odeslané i přijaté) + zpráva z formuláře na začátku.
+// Jen zprávy od vzniku rezervace do vzniku další rezervace téhož hosta a bez našich interních upozornění
+// (odesílatel „Web Apartment Clara“) – jinak by se opakovala třeba potvrzení z dřívějších poptávek.
 function history(b) {
   const email = b.email.toLowerCase();
+  const start = Date.parse(b.created) - 5 * 60e3;
+  const later = allBookings()
+    .filter(other => other.id !== b.id && other.email.toLowerCase() === email && other.created > b.created)
+    .map(other => Date.parse(other.created) - 60e3);
+  const end = later.length ? Math.min(...later) : Infinity;
   const items = b.message ? [{ at: b.created, guest: true, subject: 'Zpráva z formuláře na webu', text: b.message }] : [];
   const seen = {};
   GmailApp.search(`from:${email} OR to:${email}`, 0, 30).forEach(thread => thread.getMessages().forEach(message => {
-    if (seen[message.getId()]) return;
+    const at = message.getDate().getTime();
+    if (seen[message.getId()] || at < start || at >= end || /Web Apartment Clara/.test(message.getFrom())) return;
     seen[message.getId()] = true;
     const from = addressOf(message.getFrom());
     const recipients = `${message.getTo()},${message.getCc()}`.toLowerCase();
     if (from !== email && recipients.indexOf(email) === -1) return;
-    items.push({ at: message.getDate().toISOString(), guest: from === email, subject: message.getSubject(), text: cleanBody(message.getPlainBody()) });
+    items.push({ at: new Date(at).toISOString(), guest: from === email, subject: message.getSubject(), text: cleanBody(message.getPlainBody()) });
   }));
   return items.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0)).slice(-40);
 }
@@ -376,6 +386,10 @@ function bookingAction(data) {
   } else if (data.action === 'unpaid') {
     delete b.paidAt;
     b.status = b.confirmedAt ? 'confirmed' : 'new';
+  } else if (data.action === 'delete') {   // natrvalo, jen zrušenou (třeba zkušební); e-maily v Gmailu zůstanou
+    if (b.status !== 'cancelled') return { ok: false, error: 'nejdřív zrušit' };
+    props().deleteProperty('b_' + b.id);
+    return { ok: true };
   } else if (['reply', 'confirm', 'paid'].indexOf(data.action) !== -1) {
     const mail = data.action !== 'paid' || data.send !== false;
     if (mail && tooManySends()) return { ok: false, error: 'limit' };

@@ -46,21 +46,26 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
   - do benalmadena.clara@gmail.com a na osobní e-mail (`NOTIFY_EMAIL`) upozornění s **odkazem na rezervaci**.
 - **Stránka rezervace** (`rezervace.html`, otevírá se odkazem z e-mailu):
   - nahoře stav: nová poptávka / potvrzeno – čeká na platbu / zaplaceno ✓ / zrušeno,
-  - **konverzace s hostem** – zpráva z formuláře a všechny e-maily s hostem (skript je čte ze schránky),
+  - **konverzace s hostem** – zpráva z formuláře a e-maily s hostem k této rezervaci (skript je čte ze schránky;
+    jen od poptávky do případné další poptávky téhož hosta, bez interních upozornění pro nás),
   - **Odpovědět hostovi** – odpověď odejde z benalmadena.clara@gmail.com (když host už psal, jako odpověď v jeho vlákně),
   - **Potvrdit a poslat platební údaje** – e-mail v jazyce hosta: text, QR kód pro platbu a pod ním údaje pro ruční
     platbu; termín, cenu, zálohu a splatnost jde upravit a náhled ukazuje přesně to, co host dostane,
   - **Platba přišla** – host dostane poděkování (text jde upravit, nebo jen označit platbu bez e-mailu),
     u rezervace se objeví fajfka ✓ a připomínky přestanou chodit,
-  - dole *Zrušit rezervaci* (hostovi se nic neposílá) a *Obnovit rezervaci*.
+  - dole *Zrušit rezervaci* (hostovi se nic neposílá) a *Obnovit rezervaci*; zrušenou jde *Smazat natrvalo*
+    (třeba zkušební – e-maily v Gmailu zůstanou),
+  - nahoře *← Všechny rezervace* – přechod na přehled a ostatní hosty.
 - **Přehled všech rezervací** – odkaz přijde e-mailem po spuštění funkce `nastavit` a je i v každém upozornění
   na osobní e-mail. Rezervace jsou rozdělené na nové, čekající na platbu, zaplacené a proběhlé/zrušené;
   značka „nová zpráva“ znamená, že host napsal a zprávu zatím nikdo neotevřel.
 - **Upozornění na osobní e-mail** (`NOTIFY_EMAIL`): nová poptávka, každá nová zpráva od hosta (kontrola
   každých 10 minut) a připomínka platby 1, 3 a 7 dní po potvrzení, dokud nikdo neklikne na *Platba přišla*.
 - Po potvrzení **hned zavřete termín v Bookingu** a zapište pobyt do Google kalendáře „Přímé rezervace“.
-- Odkazy jsou podepsané: odkaz na rezervaci otevře jen tu jednu, odkaz na přehled všechny. **Nikomu je
-  nepřeposílejte** – proto se e-mail s poptávkou už neodesílá „odpovědí hostovi“, hostům se píše ze stránky.
+- Odkazy v našich e-mailech jsou podepsané a otevřou rezervaci i přehled všech ostatních. **Nikomu je
+  nepřeposílejte** – proto e-mail s poptávkou není „odpovědí hostovi“, hostům se píše ze stránky.
+  Starší odkazy na jednu rezervaci (`#id=…&t=…`) platí dál; na přehled z nich vede cesta, když byl v tom
+  prohlížeči někdy otevřený odkaz na přehled.
 - Potvrzení hostovi může u některých schránek (např. Seznam) skončit ve spamu; web hosta po odeslání formuláře
   upozorní, ať se tam podívá.
 - Platby: Kč = QR Platba (načte ji každá česká banka), v textu číslo účtu v českém tvaru a variabilní symbol

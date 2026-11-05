@@ -116,7 +116,10 @@
         <section class="card">
           <h2>Údaje z poptávky</h2>
           <dl class="facts-list" id="summary"></dl>
-          <div class="form-actions"><button type="button" class="btn btn-ghost btn-sm" id="cancel">Zrušit rezervaci</button></div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="cancel">Zrušit rezervaci</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="delete" hidden>Smazat natrvalo</button>
+          </div>
         </section>
       </div>
 
@@ -208,6 +211,7 @@ const CHECKOUT = '10:00';
 const LOCALE = { cs: 'cs-CZ', en: 'en-GB', es: 'es-ES' };
 const LANG_NAME = { cs: 'čeština', en: 'angličtina', es: 'španělština' };
 const SIGN_STORE = 'clara-podpis';
+const KEY_STORE = 'clara-prehled';   // klíč k přehledu zapamatovaný v tomto prohlížeči (i pro starší odkazy na jednu rezervaci)
 
 const MAIL = {
   cs: {
@@ -341,6 +345,7 @@ const dayCs = iso => (iso ? new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', m
 const plural = (n, one, few, other) => `${n} ${n === 1 ? one : n > 1 && n < 5 ? few : other}`;
 const rangeCs = b => `${dateCs(b.from)} – ${dateCs(b.to)}`;
 const storedSignature = () => { try { return localStorage.getItem(SIGN_STORE) || ''; } catch { return ''; } };
+const storedKey = () => { try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; } };
 
 function dateText(iso, lang, weekday = false) {
   const options = { day: 'numeric', month: lang === 'cs' ? 'numeric' : 'long', year: 'numeric' };
@@ -394,6 +399,7 @@ const ERRORS = {
   'bez odkazu': 'Stránku otevřete přes odkaz z e-mailu.',
   'prázdná': 'Napište nejdřív text odpovědi.',
   'údaje': 'V potvrzení něco chybí – podívejte se na červený text nad náhledem.',
+  'nejdřív zrušit': 'Smazat jde jen zrušenou rezervaci.',
 };
 const errorText = err => ERRORS[err.message] || `Něco se nepovedlo (${err.message}). Zkuste to znovu.`;
 
@@ -426,6 +432,9 @@ async function route() {
   $('loading').hidden = false;
   try {
     const p = hashParams();
+    if (p.get('key')) {
+      try { localStorage.setItem(KEY_STORE, p.get('key')); } catch { /* bez paměti prohlížeče to funguje taky */ }
+    }
     if (p.get('id')) await openDetail(p.get('id'));
     else if (p.get('key')) await openOverview();
     else throw new Error('bez odkazu');
@@ -501,8 +510,9 @@ function renderDetail(first) {
   const nights = nightsBetween(b.from, b.to);
   $('title').textContent = b.name;
   document.title = `${b.name} · Rezervace · Apartment Clara`;
-  $('back').hidden = !current.admin;
-  $('back').href = `#key=${encodeURIComponent(hashParams().get('key') || '')}`;
+  const overviewKey = hashParams().get('key') || storedKey();
+  $('back').hidden = !overviewKey;
+  $('back').href = `#key=${encodeURIComponent(overviewKey)}`;
   $('d-sub').textContent = `${rangeCs(b)} · ${plural(nights, 'noc', 'noci', 'nocí')} · ${plural(b.guests, 'host', 'hosté', 'hostů')} · ${LANG_NAME[b.lang] || b.lang}`;
   $('d-chips').innerHTML = statusChips(b);
 
@@ -528,6 +538,7 @@ function renderDetail(first) {
   $('summary').innerHTML = facts.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join('');
   const cancelled = b.status === 'cancelled';
   $('cancel').textContent = cancelled ? 'Obnovit rezervaci' : 'Zrušit rezervaci';
+  $('delete').hidden = !cancelled;
   $('confirm-card').hidden = $('paid-card').hidden = cancelled;
 
   // potvrzení
@@ -813,6 +824,21 @@ $('cancel').addEventListener('click', () => run(async () => {
   if (!confirm(cancelled ? 'Obnovit rezervaci?' : 'Zrušit rezervaci? Hostovi se nic neposílá, jen se přestanou posílat připomínky.')) return;
   await apiPost(cancelled ? 'reopen' : 'cancel');
   await openDetail(current.booking.id);
+}));
+
+$('delete').addEventListener('click', () => run(async () => {
+  if (!confirm('Smazat rezervaci natrvalo? Zmizí z přehledu, e-maily v Gmailu zůstanou.')) return;
+  await apiPost('delete');
+  toast('Rezervace je smazaná.');
+  const key = hashParams().get('key') || storedKey();
+  if (key) {
+    location.hash = `#key=${encodeURIComponent(key)}`;
+  } else {
+    current = null;
+    $('detail').hidden = true;
+    $('error').textContent = 'Rezervace je smazaná.';
+    $('error').hidden = false;
+  }
 }));
 
 $('copy-text').addEventListener('click', async () => {
