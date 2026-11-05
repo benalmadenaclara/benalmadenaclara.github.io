@@ -9,8 +9,13 @@
  *    přímých rezervací a webu vrátí jen obsazené noci, žádná jména.
  *    Kontrola: v editoru vybrat funkci testObsazenosti a kliknout na Spustit.
  *
- * Adresy kalendářů jsou tajné a osobní e-mail nemá být ve veřejném kódu, proto jsou
- * v Nastavení projektu → Vlastnosti skriptu: BOOKING_ICAL, DIRECT_ICAL a NOTIFY_EMAIL.
+ * 3) Do obou e-mailů pro nás dá odkaz na stránku platba.html, která z údajů poptávky připraví text
+ *    potvrzení v jazyce hosta a QR kód pro platbu (údaje jsou v odkazu za #, nikam se neposílají).
+ *
+ * Adresy kalendářů jsou tajné a osobní e-mail ani účet nemají být ve veřejném kódu, proto jsou
+ * v Nastavení projektu → Vlastnosti skriptu: BOOKING_ICAL, DIRECT_ICAL, NOTIFY_EMAIL
+ * a pro platby PAYMENT_IBAN (účet pro Kč), PAYMENT_NAME (majitel účtu),
+ * případně PAYMENT_IBAN_EUR (jiný účet pro eura) a PAYMENT_BIC.
  *
  * Nasazení (přihlášeni jako benalmadena.clara@gmail.com):
  *   script.google.com → Nový projekt → vložit tento kód → Uložit → doplnit Vlastnosti skriptu
@@ -164,6 +169,7 @@ function sendToOwner(r) {
     `Orientační cena: ${r.price || '–'}`,
     `Jazyk webu: ${r.lang}`, '',
     'Zpráva:', r.message || '–', '',
+    'Potvrzení s QR platbou pro hosta připravíte tady:', paymentLink(r), '',
     'Odpovědí na tento e-mail napíšete rovnou hostovi.',
     'Po potvrzení hned zavřete termín v Bookingu a zapište pobyt do Google kalendáře „Přímé rezervace“ (celodenní událost od příjezdu do posledního nocování).',
   ].join('\n');
@@ -192,14 +198,32 @@ function notifyOwner(r) {
     '',
     'Co dál:',
     `1. Odpovězte hostovi ze schránky ${OWNER_EMAIL} – poptávka tam čeká, stačí dát Odpovědět a odpověď půjde rovnou hostovi. Z tohoto e-mailu hostovi nepište.`,
-    '2. Když termín potvrdíte, hned ho zavřete v Bookingu (v extranetu nebo v aplikaci) – kalendář přímých rezervací si Booking stahuje až po několika hodinách.',
-    '3. Pobyt zapište do Google kalendáře „Přímé rezervace“ jako celodenní událost od příjezdu do posledního nocování.',
+    `2. Text potvrzení v jazyce hosta a QR kód pro platbu připravíte tady: ${paymentLink(r)}`,
+    '3. Když termín potvrdíte, hned ho zavřete v Bookingu (v extranetu nebo v aplikaci) – kalendář přímých rezervací si Booking stahuje až po několika hodinách.',
+    '4. Pobyt zapište do Google kalendáře „Přímé rezervace“ jako celodenní událost od příjezdu do posledního nocování.',
   );
   try {
     MailApp.sendEmail({ to, subject: `Nová poptávka ${dates}, ${r.guests} os. – ${r.name}`, body: lines.join('\n'), name: 'Web Apartment Clara' });
   } catch (err) {
     console.error(err);
   }
+}
+
+// Odkaz na platba.html s údaji z poptávky a účtem z vlastností skriptu. Vše je za #, takže to prohlížeč
+// nikam neposílá; cenu bere z textu, který spočítal web („8 764 Kč“, „€450“).
+function paymentLink(r) {
+  const props = PropertiesService.getScriptProperties();
+  const amount = String(r.price || '').replace(/\D/g, '');
+  const params = {
+    lang: r.lang, name: r.name, email: r.email, from: r.from, to: r.to, guests: r.guests,
+    amount, cur: amount ? (/Kč/.test(r.price) ? 'CZK' : 'EUR') : '',
+    iban: props.getProperty('PAYMENT_IBAN'), ibanEur: props.getProperty('PAYMENT_IBAN_EUR'),
+    bic: props.getProperty('PAYMENT_BIC'), holder: props.getProperty('PAYMENT_NAME'),
+  };
+  return `${SITE_URL}/platba.html#` + Object.keys(params)
+    .filter(key => params[key])
+    .map(key => `${key}=${encodeURIComponent(params[key])}`)
+    .join('&');
 }
 
 // ===== Obsazenost: stejný výpočet jako tools/availability.py (ten plní zálohu availability.json na GitHubu) =====

@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Pomocná stránka jen pro nás: z odkazu v e-mailu s poptávkou připraví text potvrzení v jazyce hosta
+     a QR kód pro platbu. Nic neodesílá, z webu na ni nevede odkaz a vyhledávače ji nezobrazí. -->
+<meta name="robots" content="noindex, nofollow">
+<title>Potvrzení a QR platba · Apartment Clara</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link rel="stylesheet" href="https://fonts.bunny.net/css?family=bricolage-grotesque:600,700|figtree:400,500,600,700&amp;display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  .pay { padding-block: clamp(24px, 5vw, 48px) 64px; }
+  .pay-head { display: flex; align-items: center; gap: 14px; }
+  .pay-head img { width: 44px; height: 44px; }
+  .pay-head .eyebrow { margin-bottom: 4px; }
+  .pay h1 { margin: 0; font-size: clamp(1.7rem, 4vw, 2.4rem); }
+  .pay-intro { max-width: 46em; margin: 12px 0 24px; color: var(--ink-soft); }
+  .pay-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 24px; align-items: start; }
+  .card { padding: clamp(18px, 3vw, 28px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--wall); box-shadow: var(--shadow); }
+  .card h2 { margin: 0 0 14px; font-size: 1.2rem; }
+  .card h2:not(:first-child) { margin-top: 26px; }
+  .bank { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .bank summary { margin-bottom: 12px; font-weight: 700; cursor: pointer; }
+  .steps { margin: 0 0 16px; padding-left: 1.2em; color: var(--ink-soft); font-size: .95rem; }
+  .qr-box { display: grid; justify-items: center; gap: 10px; text-align: center; }
+  .qr-box canvas { width: min(260px, 100%); height: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .qr-empty { margin: 0; padding: 28px 18px; border: 1.5px dashed var(--line); border-radius: 12px; color: var(--muted); }
+  .hint { margin: 0; color: var(--muted); font-size: .85rem; }
+  .warn { margin: 0 0 14px; color: #B42318; font-size: .92rem; font-weight: 600; }
+  .reply { margin: 0 0 14px; padding: 14px 16px; max-height: 560px; overflow: auto; border-radius: 12px; background: var(--mist); font: .95rem/1.55 var(--sans); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .card .form-status { margin: 14px 0 0; }
+  .card .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .payload { margin-top: 16px; color: var(--muted); font-size: .85rem; }
+  .payload summary { cursor: pointer; }
+  .payload pre { padding: 10px 12px; border-radius: 10px; background: var(--mist); white-space: pre-wrap; overflow-wrap: anywhere; }
+  @media (max-width: 860px) { .pay-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<main class="container pay">
+  <header class="pay-head">
+    <img src="favicon.svg" alt="">
+    <div>
+      <p class="eyebrow">Apartment Clara · jen pro nás</p>
+      <h1>Potvrzení rezervace a QR platba</h1>
+    </div>
+  </header>
+  <p class="pay-intro">Údaje z poptávky se doplní z odkazu v e-mailu a upravit jde cokoli. Text i QR kód se připravují jen tady v prohlížeči, stránka nic neodesílá.</p>
+
+  <div class="pay-grid">
+    <form class="card" id="pay-form" autocomplete="off">
+      <h2>Rezervace</h2>
+      <div class="field">
+        <label for="p-lang">Jazyk odpovědi</label>
+        <select id="p-lang" name="lang">
+          <option value="cs">čeština</option>
+          <option value="en">angličtina</option>
+          <option value="es">španělština</option>
+        </select>
+      </div>
+      <div class="field-pair">
+        <div class="field"><label for="p-name">Jméno hosta</label><input id="p-name" name="name"></div>
+        <div class="field"><label for="p-email">E-mail hosta</label><input id="p-email" name="email" type="email"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="p-from">Příjezd</label><input id="p-from" name="from" type="date"></div>
+        <div class="field"><label for="p-to">Odjezd</label><input id="p-to" name="to" type="date"></div>
+        <div class="field"><label for="p-guests">Hosté</label><input id="p-guests" name="guests" type="number" min="1" max="4" value="2"></div>
+      </div>
+
+      <h2>Platba</h2>
+      <div class="field-pair">
+        <div class="field"><label for="p-amount">Cena pobytu</label><input id="p-amount" name="amount" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div class="field">
+          <label for="p-cur">Měna</label>
+          <select id="p-cur" name="cur">
+            <option value="CZK">Kč – QR Platba</option>
+            <option value="EUR">€ – evropský QR kód</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-pair">
+        <div class="field"><label for="p-deposit">Záloha (nepovinné)</label><input id="p-deposit" name="deposit" type="number" min="0" step="1" inputmode="numeric" placeholder="platí se celá cena"></div>
+        <div class="field"><label for="p-due">Zaplatit do</label><input id="p-due" name="due" type="date"></div>
+      </div>
+      <div class="field-pair">
+        <div class="field"><label for="p-balance">Doplatek do (jen u zálohy)</label><input id="p-balance" name="balanceDue" type="date"></div>
+        <div class="field"><label for="p-vs">Variabilní symbol</label><input id="p-vs" name="vs" inputmode="numeric" maxlength="10"></div>
+      </div>
+      <div class="field"><label for="p-sign">Podpis pod textem</label><input id="p-sign" name="signature" placeholder="Apartment Clara"></div>
+
+      <details class="bank" id="bank">
+        <summary>Účet pro platby</summary>
+        <div class="field"><label for="p-iban">IBAN pro platby v Kč</label><input id="p-iban" name="iban" autocapitalize="characters" spellcheck="false"></div>
+        <div class="field"><label for="p-iban-eur">IBAN pro platby v eurech (jen když je jiný)</label><input id="p-iban-eur" name="ibanEur" autocapitalize="characters" spellcheck="false"></div>
+        <div class="field-pair">
+          <div class="field"><label for="p-bic">BIC/SWIFT (pro eura)</label><input id="p-bic" name="bic" autocapitalize="characters" spellcheck="false"></div>
+          <div class="field"><label for="p-holder">Majitel účtu</label><input id="p-holder" name="holder"></div>
+        </div>
+        <p class="hint">Účet se doplní z odkazu v e-mailu (z vlastností Google skriptu) a stránka si ho pamatuje v tomto prohlížeči.</p>
+      </details>
+    </form>
+
+    <section class="card" aria-live="polite">
+      <ol class="steps">
+        <li><strong>Kopírovat text</strong> a vložit ho do odpovědi hostovi.</li>
+        <li><strong>Kopírovat QR kód</strong> a vložit ho do stejného e-mailu (v telefonu: Stáhnout a přiložit).</li>
+      </ol>
+      <p class="warn" id="warn" hidden></p>
+      <div class="qr-box">
+        <canvas id="qr" width="1" height="1" hidden></canvas>
+        <p class="qr-empty" id="qr-empty">QR kód se ukáže, až bude vyplněná cena a účet.</p>
+        <p class="hint" id="qr-note"></p>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary btn-sm" id="copy-qr">Kopírovat QR kód</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="save-qr">Stáhnout</button>
+        </div>
+      </div>
+
+      <h2>Text odpovědi</h2>
+      <pre class="reply" id="reply"></pre>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="copy-text">Kopírovat text</button>
+        <a class="btn btn-ghost btn-sm" id="mailto" hidden>Otevřít jako nový e-mail</a>
+      </div>
+      <p class="form-status" id="status" hidden></p>
+      <details class="payload"><summary>Co je v QR kódu</summary><pre id="payload"></pre></details>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" integrity="sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+/* Apartment Clara – text potvrzení a QR kód pro platbu (jen pro nás).
+   Údaje bere z části odkazu za # (posílá ji Google skript tools/poptavky.gs), nic neodesílá.
+   Kč: QR Platba (formát SPAYD, umí ji české banky). €: evropský QR kód pro SEPA převod (formát EPC). */
+const ADDRESS = 'Avenida de la Telefónica 15, 29630 Benalmádena';
+const CHECKIN = '15:00';
+const CHECKOUT = '10:00';
+const LOCALE = { cs: 'cs-CZ', en: 'en-GB', es: 'es-ES' };
+const STORE = 'clara-platba';                                  // účet a podpis zapamatované v tomto prohlížeči
+const REMEMBER = ['iban', 'ibanEur', 'bic', 'holder', 'signature'];
+
+const TEXTS = {
+  cs: {
+    subject: (from, to) => `Potvrzení rezervace – Apartment Clara, ${from} – ${to}`,
+    greeting: () => 'Dobrý den,',
+    intro: 'děkujeme za rezervaci apartmánu Clara v Benalmádeně. Termín vám rádi potvrzujeme:',
+    arrival: d => `Příjezd: ${d} (od ${CHECKIN})`,
+    departure: d => `Odjezd: ${d} (do ${CHECKOUT})`,
+    stay: (nights, guests) => `Délka pobytu: ${nights}, ${guests}`,
+    nights: { one: 'noc', few: 'noci', other: 'nocí' },
+    guests: { one: 'host', few: 'hosté', other: 'hostů' },
+    price: p => `Cena pobytu: ${p}`,
+    payment: 'Platba',
+    payFull: (amount, due) => `Prosíme o úhradu ${amount}${due ? ` do ${due}` : ''} na účet:`,
+    payDeposit: (amount, due) => `Prosíme o zálohu ${amount}${due ? ` do ${due}` : ''} na účet:`,
+    balance: (rest, due) => `Doplatek ${rest} prosíme uhradit ${due ? `do ${due}` : 'před příjezdem'}.`,
+    labels: { account: 'Číslo účtu', iban: 'IBAN', bic: 'BIC/SWIFT', vs: 'Variabilní symbol', ref: 'Zpráva pro příjemce', holder: 'Majitel účtu' },
+    qrCzk: 'Nejjednodušší je naskenovat přiložený QR kód v bankovní aplikaci, údaje se vyplní samy.',
+    qrEur: 'Pokud vaše banka umí QR platby, stačí naskenovat přiložený QR kód.',
+    after: 'Po připsání platby vám pošleme potvrzení a před příjezdem podrobné instrukce k self check-inu.',
+    address: `Adresa: ${ADDRESS} (8. patro).`,
+    help: 'Kdybyste cokoli potřebovali, stačí odpovědět na tento e-mail.',
+    bye: 'S pozdravem',
+    missing: '[doplňte účet]',
+  },
+  en: {
+    subject: (from, to) => `Booking confirmation – Apartment Clara, ${from} – ${to}`,
+    greeting: name => (name ? `Hello ${name},` : 'Hello,'),
+    intro: "thank you for booking Apartment Clara in Benalmádena – we're happy to confirm your stay:",
+    arrival: d => `Arrival: ${d} (from ${CHECKIN})`,
+    departure: d => `Departure: ${d} (by ${CHECKOUT})`,
+    stay: (nights, guests) => `Stay: ${nights}, ${guests}`,
+    nights: { one: 'night', other: 'nights' },
+    guests: { one: 'guest', other: 'guests' },
+    price: p => `Price: ${p}`,
+    payment: 'Payment',
+    payFull: (amount, due) => `Please transfer ${amount}${due ? ` by ${due}` : ''} to:`,
+    payDeposit: (amount, due) => `Please transfer a deposit of ${amount}${due ? ` by ${due}` : ''} to:`,
+    balance: (rest, due) => `The remaining ${rest} is due ${due ? `by ${due}` : 'before your arrival'}.`,
+    labels: { account: 'Account', iban: 'IBAN', bic: 'BIC/SWIFT', vs: 'Variable symbol', ref: 'Reference', holder: 'Account holder' },
+    qrCzk: 'If your banking app reads Czech payment QR codes, you can simply scan the attached code.',
+    qrEur: 'If your banking app can read payment QR codes, you can simply scan the attached code.',
+    after: "Once your payment arrives we'll confirm it, and before your arrival we'll send you detailed self check-in instructions.",
+    address: `Address: ${ADDRESS} (8th floor).`,
+    help: 'If you need anything, just reply to this e-mail.',
+    bye: 'Kind regards',
+    missing: '[add account]',
+  },
+  es: {
+    subject: (from, to) => `Confirmación de reserva – Apartment Clara, ${from} – ${to}`,
+    greeting: name => (name ? `Hola, ${name}:` : 'Hola:'),
+    intro: 'gracias por reservar Apartment Clara en Benalmádena. Te confirmamos la estancia:',
+    arrival: d => `Llegada: ${d} (desde las ${CHECKIN})`,
+    departure: d => `Salida: ${d} (hasta las ${CHECKOUT})`,
+    stay: (nights, guests) => `Estancia: ${nights}, ${guests}`,
+    nights: { one: 'noche', other: 'noches' },
+    guests: { one: 'huésped', other: 'huéspedes' },
+    price: p => `Precio: ${p}`,
+    payment: 'Pago',
+    payFull: (amount, due) => `Por favor, haz una transferencia de ${amount}${due ? ` a más tardar el ${due}` : ''} a:`,
+    payDeposit: (amount, due) => `Por favor, haz una transferencia de ${amount} como señal${due ? `, a más tardar el ${due},` : ''} a:`,
+    balance: (rest, due) => `El resto (${rest}) se paga ${due ? `a más tardar el ${due}` : 'antes de la llegada'}.`,
+    labels: { account: 'Cuenta', iban: 'IBAN', bic: 'BIC/SWIFT', vs: 'Símbolo variable', ref: 'Concepto', holder: 'Titular' },
+    qrCzk: 'Si tu app bancaria lee códigos QR de pago checos, puedes escanear el código adjunto.',
+    qrEur: 'Si tu app bancaria lee códigos QR de pago, puedes escanear el código adjunto.',
+    after: 'Cuando recibamos el pago te lo confirmaremos y, antes de la llegada, te enviaremos las instrucciones detalladas del self check-in.',
+    address: `Dirección: ${ADDRESS} (planta 8).`,
+    help: 'Si necesitas cualquier cosa, responde a este correo.',
+    bye: 'Un saludo',
+    missing: '[añadir cuenta]',
+  },
+};
+
+const form = document.getElementById('pay-form');
+const $ = id => document.getElementById(id);
+const canvas = $('qr');
+const qrReady = typeof qrcode !== 'undefined';
+if (qrReady) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+
+// ===== pomocné funkce =====
+const fromIso = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const nightsBetween = (a, b) => Math.round((fromIso(b) - fromIso(a)) / 864e5);
+const ascii = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E]/g, '');
+const cleanIban = s => s.replace(/\s+/g, '').toUpperCase();
+const groupIban = s => s.replace(/(.{4})/g, '$1 ').trim();
+const money = (amount, d) => new Intl.NumberFormat(LOCALE[d.lang], { style: 'currency', currency: d.cur, maximumFractionDigits: 0 }).format(amount);
+const accountFor = d => (d.cur === 'EUR' ? d.ibanEur || d.iban : d.iban);
+const reference = d => `Apartment Clara ${d.vs}`.trim();
+
+function ibanValid(iban) {
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) return false;
+  const digits = (iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, c => c.charCodeAt(0) - 55);
+  return BigInt(digits) % 97n === 1n;
+}
+
+// český IBAN → číslo účtu v obvyklém tvaru předčíslí-číslo/kód banky
+function czAccount(iban) {
+  if (!/^CZ\d{22}$/.test(iban)) return '';
+  const prefix = iban.slice(8, 14).replace(/^0+/, '');
+  return `${prefix ? `${prefix}-` : ''}${iban.slice(14).replace(/^0+/, '')}/${iban.slice(4, 8)}`;
+}
+
+// ===== údaje z formuláře =====
+function data() {
+  const f = form.elements;
+  const whole = v => Math.max(0, Math.round(Number(String(v).replace(',', '.')) || 0));
+  const amount = whole(f.amount.value);
+  const deposit = whole(f.deposit.value);
+  const pay = deposit && deposit < amount ? deposit : amount;
+  const [from, to] = [f.from.value, f.to.value];
+  return {
+    lang: TEXTS[f.lang.value] ? f.lang.value : 'cs',
+    name: f.name.value.trim(),
+    email: f.email.value.trim(),
+    from, to,
+    nights: from && to > from ? nightsBetween(from, to) : 0,
+    guests: Math.min(4, Math.max(1, whole(f.guests.value) || 1)),
+    amount, cur: f.cur.value, pay, deposit: pay < amount ? pay : 0,
+    due: f.due.value, balanceDue: f.balanceDue.value,
+    vs: f.vs.value.replace(/\D/g, '').slice(0, 10),
+    signature: f.signature.value.trim(),
+    iban: cleanIban(f.iban.value), ibanEur: cleanIban(f.ibanEur.value),
+    bic: f.bic.value.replace(/\s+/g, '').toUpperCase(), holder: f.holder.value.trim(),
+  };
+}
+
+// ===== obsah QR kódu =====
+function qrPayload(d) {
+  const acc = accountFor(d);
+  if (!d.pay || !acc || !ibanValid(acc)) return '';
+  if (d.cur === 'CZK') {   // QR Platba (SPAYD 1.0); texty bez diakritiky a hvězdiček kvůli starším aplikacím
+    const field = (key, value, max) => `${key}:${ascii(value).toUpperCase().replace(/\*/g, '').trim().slice(0, max)}`;
+    return ['SPD', '1.0', `ACC:${acc}`, `AM:${d.pay.toFixed(2)}`, 'CC:CZK',
+      ...(d.vs ? [`X-VS:${d.vs}`] : []),
+      field('MSG', `${reference(d)} ${d.name}`, 60),
+      ...(d.holder ? [field('RN', d.holder, 35)] : []),
+    ].join('*');
+  }
+  if (!d.holder) return '';   // evropský QR kód (EPC, verze 002, UTF-8) vyžaduje jméno příjemce
+  return ['BCD', '002', '1', 'SCT', d.bic, d.holder.slice(0, 70), acc, `EUR${d.pay.toFixed(2)}`, '', '',
+    `${reference(d)} ${d.name}`.trim().slice(0, 140)].join('\n');
+}
+
+// ===== text odpovědi =====
+function accountLines(d, t) {
+  const acc = accountFor(d);
+  const domestic = d.lang === 'cs' && d.cur === 'CZK' ? czAccount(acc) : '';
+  const lines = domestic
+    ? [`${t.labels.account}: ${domestic}`, `${t.labels.vs}: ${d.vs || '–'}`]
+    : [`${t.labels.iban}: ${acc ? groupIban(acc) : t.missing}`,
+      ...(d.bic && d.cur === 'EUR' ? [`${t.labels.bic}: ${d.bic}`] : []),
+      `${t.labels.ref}: ${reference(d)}`];
+  if (d.holder) lines.push(`${t.labels.holder}: ${d.holder}`);
+  return lines;
+}
+
+function replyText(d) {
+  const t = TEXTS[d.lang];
+  const locale = LOCALE[d.lang];
+  const month = d.lang === 'cs' ? 'numeric' : 'long';
+  const long = new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month, year: 'numeric' });
+  const plain = new Intl.DateTimeFormat(locale, { day: 'numeric', month, year: 'numeric' });
+  const count = (n, forms) => `${n} ${forms[new Intl.PluralRules(locale).select(n)] ?? forms.other}`;
+  const lines = [t.greeting(d.name), '', t.intro, ''];
+  if (d.from) lines.push(t.arrival(long.format(fromIso(d.from))));
+  if (d.to) lines.push(t.departure(long.format(fromIso(d.to))));
+  if (d.nights > 0) lines.push(t.stay(count(d.nights, t.nights), count(d.guests, t.guests)));
+  if (d.amount) lines.push(t.price(money(d.amount, d)));
+  if (d.pay) {
+    const due = d.due ? plain.format(fromIso(d.due)) : '';
+    lines.push('', t.payment, (d.deposit ? t.payDeposit : t.payFull)(money(d.pay, d), due), ...accountLines(d, t));
+    if (d.deposit) lines.push(t.balance(money(d.amount - d.pay, d), d.balanceDue ? plain.format(fromIso(d.balanceDue)) : ''));
+    if (qrReady && qrPayload(d)) lines.push(d.cur === 'CZK' ? t.qrCzk : t.qrEur);
+  }
+  lines.push('', t.after, t.address, t.help, '', t.bye, d.signature || 'Apartment Clara');
+  return lines.join('\n');
+}
+
+function subject(d) {
+  const options = d.lang === 'cs' ? { day: 'numeric', month: 'numeric', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' };
+  const format = new Intl.DateTimeFormat(LOCALE[d.lang], options);
+  return TEXTS[d.lang].subject(d.from ? format.format(fromIso(d.from)) : '', d.to ? format.format(fromIso(d.to)) : '');
+}
+
+// ===== QR kód do obrázku (s popiskem pod kódem) =====
+function drawQr(payload, d) {
+  canvas.hidden = !payload;
+  $('qr-empty').hidden = Boolean(payload);
+  $('qr-note').textContent = !payload ? '' : d.cur === 'CZK'
+    ? 'QR Platba – načte ji každá česká bankovní aplikace.'
+    : 'Evropský QR kód pro převod v eurech. Umí ho jen část bank (hlavně v Německu, Rakousku, Nizozemsku a Belgii), údaje jsou proto i v textu.';
+  if (!payload) return;
+  const qr = qrcode(0, 'M');
+  qr.addData(payload, 'Byte');
+  qr.make();
+  const modules = qr.getModuleCount();
+  const cell = 8;
+  const quiet = 4 * cell;   // povinný bílý okraj kolem kódu
+  const size = modules * cell + 2 * quiet;
+  canvas.width = size;
+  canvas.height = size + 40;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  for (let r = 0; r < modules; r++) {
+    for (let c = 0; c < modules; c++) if (qr.isDark(r, c)) ctx.fillRect(quiet + c * cell, quiet + r * cell, cell, cell);
+  }
+  ctx.fillStyle = '#0E2A3B';
+  ctx.font = '600 24px Figtree, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${d.cur === 'CZK' ? 'QR Platba' : 'SEPA QR'} · ${money(d.pay, d)}`, size / 2, size + 14);
+}
+
+// ===== vykreslení =====
+let vsTouched = false;
+
+function render() {
+  const f = form.elements;
+  if (!vsTouched) f.vs.value = f.from.value ? f.from.value.slice(2).replace(/-/g, '') : '';   // VS = datum příjezdu RRMMDD
+  const d = data();
+  const text = replyText(d);
+  const payload = qrReady ? qrPayload(d) : '';
+  $('reply').textContent = text;
+  $('payload').textContent = payload || '–';
+
+  const acc = accountFor(d);
+  const problems = [];
+  if (!qrReady) problems.push('Knihovna pro QR kód se nenačetla (zkontrolujte připojení), text funguje i bez ní.');
+  if (!d.amount) problems.push('Doplňte cenu pobytu.');
+  if (!acc) problems.push('Doplňte účet (IBAN) dole v části „Účet pro platby“.');
+  else if (!ibanValid(acc)) problems.push(`IBAN ${groupIban(acc)} nevypadá správně, zkontrolujte ho.`);
+  if (d.cur === 'EUR' && !d.holder) problems.push('Pro QR kód v eurech doplňte majitele účtu.');
+  if (d.from && d.to && d.to <= d.from) problems.push('Odjezd musí být až po příjezdu.');
+  $('warn').textContent = problems.join(' ');
+  $('warn').hidden = !problems.length;
+
+  if (qrReady) drawQr(payload, d);
+  $('copy-qr').disabled = $('save-qr').disabled = !payload;
+
+  const mail = /^[^\s@?&#]+@[^\s@?&#]+\.[^\s@?&#]+$/.test(d.email) ? d.email : '';
+  $('mailto').hidden = !mail;
+  if (mail) $('mailto').href = `mailto:${mail}?subject=${encodeURIComponent(subject(d))}&body=${encodeURIComponent(text)}`;
+}
+
+let statusTimer;
+function status(message) {
+  $('status').textContent = message;
+  $('status').hidden = false;
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => { $('status').hidden = true; }, 6000);
+}
+
+function remember() {
+  const f = form.elements;
+  try {
+    localStorage.setItem(STORE, JSON.stringify(Object.fromEntries(REMEMBER.map(name => [name, f[name].value.trim()]))));
+  } catch { /* bez paměti prohlížeče to funguje taky, jen se účet příště nedoplní sám */ }
+}
+
+// ===== start: odkaz z e-mailu, pak zapamatované údaje, pak výchozí hodnoty =====
+(function prefill() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch { saved = {}; }
+  const f = form.elements;
+  for (const el of f) {
+    if (!el.name) continue;
+    const value = params.get(el.name) || (REMEMBER.includes(el.name) ? saved[el.name] : '');
+    if (value) el.value = value;
+  }
+  if (!TEXTS[f.lang.value]) f.lang.value = 'cs';
+  if (!params.get('cur')) f.cur.value = f.lang.value === 'cs' ? 'CZK' : 'EUR';
+  vsTouched = Boolean(params.get('vs'));
+  if (!f.due.value) {   // splatnost: za týden, nejpozději den před příjezdem
+    const today = new Date();
+    let due = addDays(today, 7);
+    if (f.from.value && addDays(fromIso(f.from.value), -1) < due) due = addDays(fromIso(f.from.value), -1);
+    if (due < today) due = today;
+    f.due.value = isoDate(due);
+  }
+  if (REMEMBER.some(name => params.get(name))) remember();
+  if (!f.iban.value) $('bank').open = true;
+})();
+
+form.addEventListener('input', e => {
+  if (e.target.name === 'vs') vsTouched = true;
+  if (REMEMBER.includes(e.target.name)) remember();
+  render();
+});
+form.addEventListener('change', render);
+form.addEventListener('submit', e => e.preventDefault());
+
+$('copy-text').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('reply').textContent);
+    status('Text je zkopírovaný – vložte ho do odpovědi hostovi.');
+  } catch {
+    getSelection().selectAllChildren($('reply'));
+    status('Text je označený, zkopírujte ho (Ctrl+C) a vložte do odpovědi.');
+  }
+});
+
+$('copy-qr').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Promise(done => canvas.toBlob(done, 'image/png')) })]);
+    status('QR kód je zkopírovaný – vložte ho do e-mailu (Ctrl+V).');
+  } catch {
+    status('Obrázek tu zkopírovat nejde, použijte Stáhnout a přiložte ho k e-mailu.');
+  }
+});
+
+$('save-qr').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = `qr-platba-${data().vs || 'clara'}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+render();
+</script>
+</body>
+</html>
