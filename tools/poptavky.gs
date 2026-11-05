@@ -9,8 +9,11 @@
  *    přímých rezervací a webu vrátí jen obsazené noci, žádná jména.
  *    Kontrola: v editoru vybrat funkci testObsazenosti a kliknout na Spustit.
  *
- * 3) Do obou e-mailů pro nás dá odkaz na stránku platba.html, která z údajů poptávky připraví text
- *    potvrzení v jazyce hosta a QR kód pro platbu (údaje jsou v odkazu za #, nikam se neposílají).
+ * 3) Do obou e-mailů pro nás dá odkaz na stránku platba.html, která z údajů poptávky připraví
+ *    potvrzení v jazyce hosta s QR kódem pro platbu (údaje jsou v odkazu za #, nikam se neposílají).
+ * 4) Potvrzení (POST s action 'confirm' ze stránky platba.html): pošle ho hostovi jako HTML e-mail
+ *    s QR kódem vloženým jako obrázek (cid – zobrazí ho i Gmail) a skrytou kopii nám. Poslat jde jen
+ *    na adresu, ke které patří podpis (token) v odkazu; tajný klíč LINK_SECRET si skript vytvoří sám.
  *
  * Adresy kalendářů jsou tajné a osobní e-mail ani účet nemají být ve veřejném kódu, proto jsou
  * v Nastavení projektu → Vlastnosti skriptu: BOOKING_ICAL, DIRECT_ICAL, NOTIFY_EMAIL
@@ -76,6 +79,7 @@ const TEXTS = {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (data.action === 'confirm') return reply(sendConfirmation(data));   // potvrzení ze stránky platba.html
     if (data.website) return reply({ ok: true });   // skryté pole vyplnil robot – tváříme se, že je hotovo
     const request = validate(data);
     if (tooMany(request.email)) return reply({ ok: false, error: 'limit' });
@@ -169,7 +173,7 @@ function sendToOwner(r) {
     `Orientační cena: ${r.price || '–'}`,
     `Jazyk webu: ${r.lang}`, '',
     'Zpráva:', r.message || '–', '',
-    'Potvrzení s QR platbou pro hosta připravíte tady:', paymentLink(r), '',
+    'Potvrzení s QR kódem pro platbu připravíte a hostovi odešlete tady:', paymentLink(r), '',
     'Odpovědí na tento e-mail napíšete rovnou hostovi.',
     'Po potvrzení hned zavřete termín v Bookingu a zapište pobyt do Google kalendáře „Přímé rezervace“ (celodenní událost od příjezdu do posledního nocování).',
   ].join('\n');
@@ -197,10 +201,11 @@ function notifyOwner(r) {
   lines.push(
     '',
     'Co dál:',
-    `1. Odpovězte hostovi ze schránky ${OWNER_EMAIL} – poptávka tam čeká, stačí dát Odpovědět a odpověď půjde rovnou hostovi. Z tohoto e-mailu hostovi nepište.`,
-    `2. Text potvrzení v jazyce hosta a QR kód pro platbu připravíte tady: ${paymentLink(r)}`,
-    '3. Když termín potvrdíte, hned ho zavřete v Bookingu (v extranetu nebo v aplikaci) – kalendář přímých rezervací si Booking stahuje až po několika hodinách.',
-    '4. Pobyt zapište do Google kalendáře „Přímé rezervace“ jako celodenní událost od příjezdu do posledního nocování.',
+    `1. Když termín můžete potvrdit, otevřete tento odkaz. Připraví potvrzení v jazyce hosta s QR kódem pro platbu a tlačítkem Odeslat hostovi ho pošle (kopie přijde do ${OWNER_EMAIL}): ${paymentLink(r)}`,
+    '2. Hned potom termín zavřete v Bookingu (v extranetu nebo v aplikaci) – kalendář přímých rezervací si Booking stahuje až po několika hodinách.',
+    '3. Pobyt zapište do Google kalendáře „Přímé rezervace“ jako celodenní událost od příjezdu do posledního nocování.',
+    '',
+    `Na dotazy hosta odpovídejte ze schránky ${OWNER_EMAIL} – poptávka tam čeká, stačí dát Odpovědět. Z tohoto e-mailu hostovi nepište.`,
   );
   try {
     MailApp.sendEmail({ to, subject: `Nová poptávka ${dates}, ${r.guests} os. – ${r.name}`, body: lines.join('\n'), name: 'Web Apartment Clara' });
@@ -219,11 +224,66 @@ function paymentLink(r) {
     amount, cur: amount ? (/Kč/.test(r.price) ? 'CZK' : 'EUR') : '',
     iban: props.getProperty('PAYMENT_IBAN'), ibanEur: props.getProperty('PAYMENT_IBAN_EUR'),
     bic: props.getProperty('PAYMENT_BIC'), holder: props.getProperty('PAYMENT_NAME'),
+    token: linkToken(r.email),
   };
   return `${SITE_URL}/platba.html#` + Object.keys(params)
     .filter(key => params[key])
     .map(key => `${key}=${encodeURIComponent(params[key])}`)
     .join('&');
+}
+
+// Potvrzení rezervace ze stránky platba.html: HTML e-mail s QR kódem mezi texty before a after
+// a textová verze (text) pro programy bez HTML. Skrytá kopie jde nám.
+function sendConfirmation(data) {
+  const email = String(data.email || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !data.token || data.token !== linkToken(email)) {
+    return { ok: false, error: 'odkaz' };
+  }
+  const cache = CacheService.getScriptCache();
+  const sent = Number(cache.get('confirm') || 0);
+  if (sent >= 20) return { ok: false, error: 'limit' };   // pojistka: nejvýš 20 potvrzení za hodinu
+  cache.put('confirm', String(sent + 1), 3600);
+  const text = value => String(value || '').slice(0, 8000);
+  const options = {
+    to: email,
+    bcc: OWNER_EMAIL,
+    replyTo: OWNER_EMAIL,
+    name: 'Apartment Clara',
+    subject: String(data.subject || 'Apartment Clara').replace(/\s+/g, ' ').trim().slice(0, 150),
+    body: text(data.text),
+  };
+  let image = '';
+  if (data.qr) {
+    const bytes = Utilities.base64Decode(String(data.qr));
+    const png = bytes.length < 300000 && bytes[0] === -119 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;   // podpis souboru PNG
+    if (!png) return { ok: false, error: 'qr' };
+    options.inlineImages = { qr: Utilities.newBlob(bytes, 'image/png', 'qr-platba.png') };
+    image = '<p style="margin:0 0 14px"><img src="cid:qr" alt="QR" width="240" style="display:block;width:240px;max-width:100%;height:auto;border:0"></p>';
+  }
+  options.htmlBody = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#0E2A3B">'
+    + toHtml(text(data.before)) + image + toHtml(text(data.after)) + '</div>';
+  MailApp.sendEmail(options);
+  return { ok: true };
+}
+
+// Podpis odkazu pro adresu hosta (HMAC s tajným klíčem, který si skript při prvním použití uloží do vlastností)
+function linkToken(email) {
+  const props = PropertiesService.getScriptProperties();
+  let secret = props.getProperty('LINK_SECRET');
+  if (!secret) {
+    secret = Utilities.getUuid() + Utilities.getUuid();
+    props.setProperty('LINK_SECRET', secret);
+  }
+  const signature = Utilities.computeHmacSha256Signature(String(email).trim().toLowerCase(), secret);
+  return Utilities.base64EncodeWebSafe(signature).slice(0, 22);
+}
+
+function toHtml(text) {
+  const escape = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return text.split(/\n{2,}/)
+    .filter(paragraph => paragraph.trim())
+    .map(paragraph => `<p style="margin:0 0 14px">${escape(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('');
 }
 
 // ===== Obsazenost: stejný výpočet jako tools/availability.py (ten plní zálohu availability.json na GitHubu) =====

@@ -10,7 +10,7 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
 
 ## Soubory
 - `index.html` – obsah stránky; **anglické texty** jsou přímo tady
-- `platba.html` – pomocná stránka jen pro nás: text potvrzení rezervace a QR kód pro platbu (viz níže)
+- `platba.html` – pomocná stránka jen pro nás: potvrzení rezervace s QR kódem pro platbu a jeho odeslání hostovi (viz níže)
 - `script.js` – **kontakty** (`CONFIG` hned nahoře), **české a španělské texty** (`T.cs`, `T.es`), galerie, formulář a kalendář
 - `style.css` – vzhled (barvy a písma jsou nahoře v `:root`)
 - `img/` – fotky pro web (zmenšené, bez GPS údajů); `favicon.svg` – ikonka
@@ -73,18 +73,25 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
 
 ## Potvrzení rezervace a QR platba
 - Stránka `platba.html` (jen pro nás – z webu na ni nevede odkaz a vyhledávače ji nezobrazí) připraví
-  text potvrzení v jazyce hosta a QR kód pro platbu. Odkaz na ni s údaji z poptávky přijde v obou e-mailech
-  o poptávce (v poptávce do benalmadena.clara@gmail.com i v upozornění na osobní e-mail).
-- Postup: otevřít odkaz → případně upravit cenu, zálohu nebo splatnost → *Kopírovat text* a vložit ho
-  do odpovědi hostovi → *Kopírovat QR kód* a vložit ho do stejného e-mailu (v telefonu *Stáhnout* a přiložit).
+  potvrzení v jazyce hosta: text, QR kód pro platbu a pod ním údaje pro ruční platbu. Odkaz na ni s údaji
+  z poptávky přijde v obou e-mailech o poptávce (do benalmadena.clara@gmail.com i v upozornění na osobní e-mail).
+- Postup: otevřít odkaz → případně upravit cenu, zálohu, splatnost nebo připsat poznámku → zkontrolovat náhled
+  → *Odeslat hostovi*. E-mail pošle Google skript z benalmadena.clara@gmail.com a skrytou kopii nám;
+  QR kód je v něm vložený jako obrázek, takže ho zobrazí i Gmail.
+- Odeslat jde jen na adresu hosta z poptávky: odkaz nese podpis (token) k té adrese. Tajný klíč `LINK_SECRET`
+  si skript sám uložil do vlastností skriptu – když ho smažete, přestanou platit odkazy ze starších poptávek.
+- Ručně (stránka otevřená bez odkazu, nebo když chcete psát z Gmailu): *Kopírovat text* a vložit do e-mailu,
+  pak *Kopírovat QR kód* a vložit ho do stejného e-mailu (v telefonu *Stáhnout QR kód* a přiložit).
+  Gmail obrázek vložený zároveň s textem zahodí, proto se kopírují zvlášť.
 - Kč: QR Platba (načte ji každá česká banka), v textu číslo účtu v českém tvaru a variabilní symbol
   = datum příjezdu (RRMMDD). Eura: evropský QR kód pro převod SEPA (umí ho jen část bank), v textu je proto
   i IBAN, BIC a zpráva pro příjemce.
 - Účet se bere z vlastností Google skriptu: `PAYMENT_IBAN` (účet pro Kč), `PAYMENT_NAME` (majitel účtu),
   případně `PAYMENT_IBAN_EUR` (jiný účet pro eura) a `PAYMENT_BIC`. Stránku jde použít i ručně
   (https://benalmadenaclara.github.io/platba.html) – účet si pak pamatuje v daném prohlížeči.
-- Stránka nic neodesílá, všechno se počítá v prohlížeči. Časy příjezdu a odjezdu a adresa jsou v textu napevno
-  (`CHECKIN`, `CHECKOUT`, `ADDRESS` na začátku skriptu v `platba.html`).
+- Text i QR kód se počítají v prohlížeči; ven jde jen hotový e-mail po kliknutí na *Odeslat hostovi*.
+  Časy příjezdu a odjezdu a adresa jsou v textu napevno (`CHECKIN`, `CHECKOUT`, `ADDRESS` na začátku skriptu
+  v `platba.html`). Adresa Google skriptu je tam jako `SCRIPT_URL` – když se změní, přepište ji i v `script.js`.
 
 ## Ceny
 - Cena za noc (90 €) a minimální počet nocí (4) jsou v `script.js` v `CONFIG` (`nightlyEur`, `minNights`).
