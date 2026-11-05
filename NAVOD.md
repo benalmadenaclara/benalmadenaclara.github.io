@@ -13,37 +13,60 @@ Jazyk se vybere podle prohlížeče, jde přepnout vpravo nahoře, odkaz na konk
 - `script.js` – **kontakty** (`CONFIG` hned nahoře), **české a španělské texty** (`T.cs`, `T.es`), galerie, formulář a kalendář
 - `style.css` – vzhled (barvy a písma jsou nahoře v `:root`)
 - `img/` – fotky pro web (zmenšené, bez GPS údajů); `favicon.svg` – ikonka
-- `availability.json` – obsazené noci pro kalendář; **přepisuje ho GitHub sám**, ručně ho neměňte
-- `tools/availability.py` – skript, který obsazenost načítá z obou kalendářů
-- `tools/poptavky.gs` – Google skript, který z poptávkového formuláře pošle e-maily (viz níže)
-- `.github/workflows/web.yml` – automatická úloha: každých 10 minut načte kalendáře a při změně web znovu zveřejní
+- `availability.json` – záloha obsazenosti a kurz ČNB pro kalendář; **přepisuje ho GitHub sám**, ručně ho neměňte
+- `tools/availability.py` – skript, který na GitHubu načítá zálohu obsazenosti z obou kalendářů a kurz ČNB
+- `tools/poptavky.gs` – Google skript: z poptávkového formuláře pošle e-maily a webu vrací aktuální obsazenost (viz níže)
+- `.github/workflows/web.yml` – automatická úloha: obnoví zálohu obsazenosti a kurz a při změně web znovu zveřejní
+  (nastavená po 10 minutách, GitHub ji ale reálně pouští zhruba jednou za hodinu)
 - `PXL_*.jpg`, `Photos-1-001.zip` – zdrojové fotky z telefonu, do repozitáře ani na web se nenahrávají
 
 ## Jak funguje obsazenost
-- Booking (rezervace i ručně zavřené dny) a Google kalendář „Přímé rezervace“ se každých 10 minut
-  sloučí do `availability.json` a z něj kreslí kalendář na webu. Návštěvníci vidí jen obsazené dny, žádná jména.
-- Google kalendář „Přímé rezervace“ je zároveň importovaný do Bookingu, takže přímá rezervace zavře termín i tam.
-  Booking si ho ale načítá se zpožděním – v sezóně proto termín po potvrzení zavřete v Bookingu i ručně.
+- Kalendář na webu ukazuje obsazené noci z Bookingu (rezervace i ručně zavřené dny) a z Google kalendáře
+  „Přímé rezervace“. Návštěvníci vidí jen obsazené dny, žádná jména.
+- **Aktuální stav** si web při otevření stránky vyžádá od Google skriptu (`tools/poptavky.gs`), který oba kalendáře
+  čte napřímo a pamatuje si je 5 minut – změny jsou tedy na webu do pár minut.
+- **Záloha:** automatická úloha na GitHubu ukládá obsazenost a kurz ČNB do `availability.json`. Je nastavená
+  na každých 10 minut, GitHub ji ale reálně pouští zhruba jednou za hodinu. Web zálohu ukáže hned a nahradí ji
+  aktuálním stavem, jakmile Google skript odpoví (když neodpoví, zůstane záloha).
+- Google kalendář „Přímé rezervace“ je zároveň importovaný do Bookingu, ten si ho ale stahuje se zpožděním
+  (v našem testu asi 2 hodiny). Po potvrzení přímé rezervace proto termín **hned zavřete v Bookingu i ručně**
+  (a když rezervace padne, zase ho tam ručně otevřete).
 - Přímou rezervaci zapisujte jako **celodenní událost od dne příjezdu do posledního nocování** (den před odjezdem).
-- Adresy obou kalendářů jsou uložené na GitHubu: *Settings → Secrets and variables → Actions* jako
-  `BOOKING_ICAL` a `DIRECT_ICAL`. Když se změní (např. nová tajná adresa Google kalendáře), přepište je tam.
-- Kalendář na webu je orientační, rezervaci vždy potvrzujete ručně.
+- Adresy obou kalendářů jsou uložené na dvou místech – když se změní (např. nová tajná adresa Google kalendáře),
+  přepište je v obou:
+  - na GitHubu: *Settings → Secrets and variables → Actions* jako `BOOKING_ICAL` a `DIRECT_ICAL`,
+  - v Google skriptu: *Nastavení projektu* (ozubené kolečko vlevo) → *Vlastnosti skriptu*, pod stejnými názvy.
+- Kalendář na webu je orientační, rezervaci vždy potvrzujete ručně – předtím se ještě podívejte do Bookingu.
 
 ## Poptávkový formulář a e-maily
 - Host vyplní jméno, e-mail, termín, počet hostů a případně zprávu. Web údaje pošle Google skriptu,
-  který odešle dva e-maily ze schránky benalmadena.clara@gmail.com: hostovi potvrzení, že poptávka dorazila
-  a čeká na potvrzení (v jazyce webu), a nám poptávku se všemi údaji – odpovědí na ni píšete rovnou hostovi.
+  který ze schránky benalmadena.clara@gmail.com odešle:
+  - hostovi potvrzení, že poptávka dorazila a čeká na potvrzení (v jazyce webu),
+  - do benalmadena.clara@gmail.com poptávku se všemi údaji – odpovědí na ni píšete rovnou hostovi,
+  - na osobní e-mail z vlastnosti skriptu `NOTIFY_EMAIL` krátké upozornění s postupem (odpověď na něj jde
+    zpět do benalmadena.clara@gmail.com, ne hostovi; když je vlastnost prázdná, upozornění se neposílá).
+- Hostům vždy odpovídejte z benalmadena.clara@gmail.com.
+- Potvrzení hostovi může u některých schránek (např. Seznam) skončit ve spamu; web hosta po odeslání upozorní,
+  ať se tam podívá.
 - Skript je nasazený od 4. 11. 2026 na https://script.google.com pod účtem benalmadena.clara@gmail.com,
-  jeho adresa je v `script.js` jako `inquiryUrl`. Postup, kdyby se nasazoval znovu:
+  jeho adresa je v `script.js` jako `inquiryUrl`. V *Nastavení projektu → Vlastnosti skriptu* má uložené
+  `BOOKING_ICAL` a `DIRECT_ICAL` (adresy kalendářů) a `NOTIFY_EMAIL` (osobní e-mail pro upozornění) –
+  nejsou v kódu, protože ten je na GitHubu veřejný. Postup, kdyby se nasazoval znovu:
   1. https://script.google.com → *Nový projekt*, smazat ukázkový kód a vložit obsah `tools/poptavky.gs`, uložit.
-  2. *Implementovat → Nová implementace* → ozubené kolečko → *Webová aplikace*; *Spustit jako: Já*,
+  2. *Nastavení projektu* (ozubené kolečko vlevo) → *Vlastnosti skriptu* → doplnit `BOOKING_ICAL`, `DIRECT_ICAL`
+     a `NOTIFY_EMAIL` → uložit.
+  3. Zpět v editoru vybrat funkci `testObsazenosti` → *Spustit* → povolit přístup: vybrat účet → „Google tuto
+     aplikaci neověřil“ → *Rozšířené* → *Přejít na … (nebezpečné)* → *Povolit* (je to váš vlastní skript,
+     upozornění Google ukazuje u všech neověřených skriptů). V protokolu se má objevit „V pořádku: …“.
+  4. *Implementovat → Nová implementace* → ozubené kolečko → *Webová aplikace*; *Spustit jako: Já*,
      *Kdo má přístup: Kdokoli* (ne „Kdokoli s účtem Google“) → *Implementovat*.
-  3. *Autorizovat přístup* → vybrat účet → „Google tuto aplikaci neověřil“ → *Rozšířené* → *Přejít na … (nebezpečné)* → *Povolit*
-     (je to váš vlastní skript, upozornění Google ukazuje u všech neověřených skriptů).
-  4. Zkopírovat *adresu webové aplikace* (končí na `/exec`) a vložit ji do `script.js` jako `inquiryUrl`.
-- Po úpravě kódu skriptu: *Implementovat → Spravovat implementace* → tužka → *Verze: Nová verze* → *Implementovat*
-  (adresa zůstane stejná). *Nová implementace* by vytvořila novou adresu a tu by bylo nutné přepsat v `script.js`.
-- Kontrola, že skript běží: otevřít jeho adresu v prohlížeči – ukáže `{"ok":true,…}` a nic neodešle.
+  5. Zkopírovat *adresu webové aplikace* (končí na `/exec`) a vložit ji do `script.js` jako `inquiryUrl`.
+- Po úpravě kódu skriptu: nejdřív v editoru jednou *Spustit* funkci `testObsazenosti` (kdyby si skript řekl
+  o nové povolení, odsouhlasit), pak *Implementovat → Spravovat implementace* → tužka → *Verze: Nová verze* →
+  *Implementovat* (adresa zůstane stejná). *Nová implementace* by vytvořila novou adresu a tu by bylo nutné
+  přepsat v `script.js`.
+- Kontrola, že skript běží: otevřít jeho adresu v prohlížeči – ukáže `{"ok":true,…}` a nic neodešle;
+  s `?availability=1` na konci adresy ukáže obsazenost, kterou dostává web.
 - Kdyby `inquiryUrl` byla prázdná, formulář jen otevře e-mailový program hosta s předvyplněnou zprávou.
 - WhatsApp je na webu zatím skrytý (`whatsapp: ''` v `CONFIG`); zapne se vrácením čísla `420602166011`.
 

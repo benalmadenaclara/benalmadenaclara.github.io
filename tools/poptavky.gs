@@ -1,22 +1,33 @@
 /**
- * Apartment Clara – poptávky z webu https://benalmadenaclara.github.io
+ * Apartment Clara – poptávky a obsazenost pro web https://benalmadenaclara.github.io
  *
- * Web sem pošle poptávku a skript odešle dva e-maily ze schránky, pod kterou běží:
- *   1) hostovi potvrzení, že poptávka dorazila a čeká na potvrzení (v jazyce webu),
- *   2) nám na OWNER_EMAIL se všemi údaji – odpovědí na něj se píše rovnou hostovi.
+ * 1) Poptávka (POST): skript odešle e-maily ze schránky, pod kterou běží –
+ *    hostovi potvrzení, že poptávka dorazila a čeká na potvrzení (v jazyce webu),
+ *    nám na OWNER_EMAIL se všemi údaji (odpovědí na něj se píše rovnou hostovi)
+ *    a krátké upozornění s postupem na osobní e-mail z vlastnosti NOTIFY_EMAIL (když je vyplněná).
+ * 2) Obsazenost (GET …/exec?availability=1): skript přečte kalendář z Bookingu a Google kalendář
+ *    přímých rezervací a webu vrátí jen obsazené noci, žádná jména.
+ *    Kontrola: v editoru vybrat funkci testObsazenosti a kliknout na Spustit.
+ *
+ * Adresy kalendářů jsou tajné a osobní e-mail nemá být ve veřejném kódu, proto jsou
+ * v Nastavení projektu → Vlastnosti skriptu: BOOKING_ICAL, DIRECT_ICAL a NOTIFY_EMAIL.
  *
  * Nasazení (přihlášeni jako benalmadena.clara@gmail.com):
- *   script.google.com → Nový projekt → vložit tento kód → Uložit
+ *   script.google.com → Nový projekt → vložit tento kód → Uložit → doplnit Vlastnosti skriptu
  *   → Implementovat → Nová implementace → Typ: Webová aplikace, Spustit jako: Já, Kdo má přístup: Kdokoli
  *   → Implementovat → Autorizovat přístup → adresu webové aplikace (…/exec) vložit do script.js jako inquiryUrl.
- * Po změně kódu: Implementovat → Spravovat implementace → upravit (tužka) → Verze: Nová verze
- *   → Implementovat (adresa zůstane stejná).
+ * Po změně kódu: nejdřív jednou Spustit testObsazenosti (kdyby skript potřeboval nové povolení),
+ *   pak Implementovat → Spravovat implementace → upravit (tužka) → Verze: Nová verze → Implementovat
+ *   (adresa zůstane stejná).
  */
 
 const OWNER_EMAIL = 'benalmadena.clara@gmail.com';
 const SITE_URL = 'https://benalmadenaclara.github.io';
 const LIMIT_PER_EMAIL = 3;   // poptávek z jedné adresy za hodinu
 const LIMIT_TOTAL = 30;      // poptávek celkem za 6 hodin (pojistka proti zneužití)
+const AVAILABILITY_CACHE_SECONDS = 300;  // jak dlouho si skript pamatuje načtenou obsazenost (5 minut)
+const HORIZON_DAYS = 550;                // jak daleko dopředu web obsazenost ukazuje (jako tools/availability.py)
+const TIME_ZONE = 'Europe/Madrid';
 
 const TEXTS = {
   cs: {
@@ -65,6 +76,7 @@ function doPost(e) {
     if (tooMany(request.email)) return reply({ ok: false, error: 'limit' });
     sendToGuest(request);
     sendToOwner(request);
+    notifyOwner(request);
     return reply({ ok: true });
   } catch (err) {
     console.error(err);
@@ -72,8 +84,10 @@ function doPost(e) {
   }
 }
 
-// kontrola, že skript běží (otevření adresy v prohlížeči nic neposílá)
-function doGet() {
+// GET: ?availability=1 vrátí obsazenost pro kalendář na webu,
+// bez parametrů jen kontrola, že skript běží (otevření adresy v prohlížeči nic neposílá)
+function doGet(e) {
+  if (e && e.parameter && e.parameter.availability) return reply(availability());
   return reply({ ok: true, service: 'Apartment Clara – poptávky' });
 }
 
@@ -151,7 +165,7 @@ function sendToOwner(r) {
     `Jazyk webu: ${r.lang}`, '',
     'Zpráva:', r.message || '–', '',
     'Odpovědí na tento e-mail napíšete rovnou hostovi.',
-    'Po potvrzení zapište pobyt do Google kalendáře „Přímé rezervace“ (celodenní událost od příjezdu do posledního nocování).',
+    'Po potvrzení hned zavřete termín v Bookingu a zapište pobyt do Google kalendáře „Přímé rezervace“ (celodenní událost od příjezdu do posledního nocování).',
   ].join('\n');
   MailApp.sendEmail({
     to: OWNER_EMAIL,
@@ -160,4 +174,108 @@ function sendToOwner(r) {
     name: 'Web Apartment Clara',
     replyTo: r.email,
   });
+}
+
+// Krátké upozornění s postupem na osobní e-mail (vlastnost skriptu NOTIFY_EMAIL; prázdná = nic se neposílá).
+// Odpověď na něj jde do schránky OWNER_EMAIL, ne hostovi – hostovi se odpovídá odtamtud.
+// Když se upozornění nepodaří odeslat, poptávka platí dál (host má potvrzení a my poptávku).
+function notifyOwner(r) {
+  const to = PropertiesService.getScriptProperties().getProperty('NOTIFY_EMAIL');
+  if (!to) return;
+  const nights = nightsBetween(r.from, r.to);
+  const dates = `${formatDate(r.from, 'cs')} – ${formatDate(r.to, 'cs')}`;
+  const lines = [
+    `Na webu přišla nová poptávka: ${r.name}, ${dates} (${nights} ${TEXTS.cs.nights(nights)}), ${r.guests} os.${r.price ? `, orientačně ${r.price}` : ''}.`,
+  ];
+  if (r.message) lines.push('', 'Zpráva hosta:', r.message);
+  lines.push(
+    '',
+    'Co dál:',
+    `1. Odpovězte hostovi ze schránky ${OWNER_EMAIL} – poptávka tam čeká, stačí dát Odpovědět a odpověď půjde rovnou hostovi. Z tohoto e-mailu hostovi nepište.`,
+    '2. Když termín potvrdíte, hned ho zavřete v Bookingu (v extranetu nebo v aplikaci) – kalendář přímých rezervací si Booking stahuje až po několika hodinách.',
+    '3. Pobyt zapište do Google kalendáře „Přímé rezervace“ jako celodenní událost od příjezdu do posledního nocování.',
+  );
+  try {
+    MailApp.sendEmail({ to, subject: `Nová poptávka ${dates}, ${r.guests} os. – ${r.name}`, body: lines.join('\n'), name: 'Web Apartment Clara' });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// ===== Obsazenost: stejný výpočet jako tools/availability.py (ten plní zálohu availability.json na GitHubu) =====
+
+function availability() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('availability');
+  if (cached) return JSON.parse(cached);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const names = ['BOOKING_ICAL', 'DIRECT_ICAL'];
+    const urls = names.map(name => props.getProperty(name));
+    names.forEach((name, i) => { if (!urls[i]) throw new Error(`Ve vlastnostech skriptu chybí ${name}.`); });
+    const ranges = [];
+    UrlFetchApp.fetchAll(urls.map(url => ({ url, muteHttpExceptions: true }))).forEach((response, i) => {
+      const ics = response.getContentText();
+      if (response.getResponseCode() !== 200 || ics.indexOf('BEGIN:VCALENDAR') === -1) {
+        throw new Error(`Kalendář ${names[i]} se nenačetl (kód ${response.getResponseCode()}).`);
+      }
+      ranges.push(...busyRanges(ics));
+    });
+    const today = Utilities.formatDate(new Date(), TIME_ZONE, 'yyyy-MM-dd');
+    const result = { ok: true, checked: today, busy: mergeRanges(ranges, today, addDays(today, HORIZON_DAYS)) };
+    cache.put('availability', JSON.stringify(result), AVAILABILITY_CACHE_SECONDS);
+    return result;
+  } catch (err) {
+    console.error(err);   // podrobnosti jen do protokolu skriptu, webu nic – adresy kalendářů jsou tajné
+    return { ok: false, error: 'obsazenost' };
+  }
+}
+
+// [příjezd, odjezd] jako 'RRRR-MM-DD'; odjezd se nepočítá, stejně jako DTEND v iCal
+function busyRanges(ics) {
+  const text = ics.replace(/\r?\n[ \t]/g, '');   // zalomené řádky iCal patří k předchozímu řádku
+  const iso = value => `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
+  const ranges = [];
+  (text.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g) || []).forEach(event => {
+    if (/^STATUS:CANCELLED/m.test(event)) return;
+    const start = event.match(/^DTSTART[^:\n]*:(\d{8})/m);
+    if (!start) return;
+    const end = event.match(/^DTEND[^:\n]*:(\d{8})/m);
+    const first = iso(start[1]);
+    const last = end ? iso(end[1]) : first;
+    ranges.push([first, last > first ? last : addDays(first, 1)]);
+  });
+  return ranges;
+}
+
+// ořízne období na dnešek až horizont a spojí ta, která se překrývají nebo na sebe navazují
+function mergeRanges(ranges, today, horizon) {
+  const merged = [];
+  ranges.map(range => range.join('/')).sort().forEach(key => {
+    let [first, last] = key.split('/');
+    if (first < today) first = today;
+    if (last > horizon) last = horizon;
+    if (last <= first) return;
+    const previous = merged[merged.length - 1];
+    if (previous && first <= previous[1]) {
+      if (last > previous[1]) previous[1] = last;
+    } else {
+      merged.push([first, last]);
+    }
+  });
+  return merged;
+}
+
+function addDays(iso, days) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+// Kontrola v editoru: vybrat tuto funkci a kliknout na Spustit (poprvé si řekne o povolení přístupu)
+function testObsazenosti() {
+  CacheService.getScriptCache().remove('availability');
+  const result = availability();
+  console.log(result.ok
+    ? `V pořádku: ${result.busy.length} obsazených období, nejbližší ${result.busy.length ? result.busy[0].join(' až ') : '–'}.`
+    : 'Obsazenost se nenačetla, důvod je na řádku výš.');
 }

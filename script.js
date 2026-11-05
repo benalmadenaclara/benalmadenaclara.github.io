@@ -5,8 +5,8 @@ const CONFIG = {
   whatsapp: '',               // WhatsApp zatím skrytý; zapne se vrácením čísla '420602166011'
   phone: '+420 602 166 011',  // telefon tak, jak se má zobrazit
   email: 'benalmadena.clara@gmail.com',
-  // adresa Google skriptu (tools/poptavky.gs), který pošle potvrzení hostovi a poptávku nám;
-  // dokud je prázdná, formulář jen otevře e-mail hosta s předvyplněnou zprávou
+  // adresa Google skriptu (tools/poptavky.gs): pošle potvrzení hostovi a poptávku nám a vrací aktuální obsazenost;
+  // dokud je prázdná, formulář jen otevře e-mail hosta s předvyplněnou zprávou a kalendář bere jen availability.json
   inquiryUrl: 'https://script.google.com/macros/s/AKfycbzMx1uGy9Y-dQa4ctcGOAseiWcZucwigxKmiCQ85OamDg6GvSkUjsPRs60go9ph4cjZpA/exec',
   nightlyEur: 90,             // cena za noc v eurech (česká verze ji přepočítá kurzem ČNB)
   minNights: 4,               // minimální počet nocí (zmínka je i v textech price.detail a info.out.d)
@@ -752,14 +752,16 @@ form.addEventListener('submit', async e => {
   }
 });
 
-// ===== Kalendář obsazenosti: availability.json obnovuje GitHub každých 10 minut z Bookingu a z Google kalendáře =====
+// ===== Kalendář obsazenosti (Booking + Google kalendář přímých rezervací): aktuální stav dodá Google skript,
+// zálohou je availability.json, který GitHub obnovuje zhruba jednou za hodinu (nese i kurz ČNB) =====
 const calendar = document.getElementById('availability');
 const calMonths = calendar.querySelector('.cal-months');
 const calSummary = calendar.querySelector('.cal-summary');
 const monthCount = () => (calendar.clientWidth >= 520 ? 2 : 1);   // dva měsíce vedle sebe, jen když se vejdou
 const busyNights = new Set();   // každá obsazená noc jako 'RRRR-MM-DD'
 let calState = 'loading';
-let checkedOn = null;           // kdy GitHub obsazenost naposledy ověřil
+let checkedOn = null;           // kdy byla obsazenost naposledy ověřena
+let liveLoaded = false;         // obsazenost už přišla přímo z Google skriptu (má přednost před zálohou)
 let eurCzk = null;              // kurz eura ČNB (přichází s obsazeností)
 let rateDate = null;
 let calNotice = '';             // jednorázové upozornění pod kalendářem (krátký pobyt apod.)
@@ -914,23 +916,49 @@ new ResizeObserver(() => {
   shownMonths = monthCount();
 }).observe(calendar);
 
+function setBusy(ranges) {
+  busyNights.clear();
+  for (const [first, last] of ranges) {
+    for (let d = fromIso(first); isoDate(d) < last; d = addDays(d, 1)) busyNights.add(isoDate(d));
+  }
+}
+
 async function loadAvailability() {
   try {
     const response = await fetch('availability.json', { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    for (const [first, last] of data.busy) {
-      for (let d = fromIso(first); isoDate(d) < last; d = addDays(d, 1)) busyNights.add(isoDate(d));
+    if (!liveLoaded) {
+      setBusy(data.busy);
+      checkedOn = fromIso(data.checked);
     }
-    checkedOn = fromIso(data.checked);
     eurCzk = data.eurCzk ?? null;
     rateDate = data.rateDate ? fromIso(data.rateDate) : null;
     calState = 'ready';
   } catch (err) {
     console.warn('Obsazenost se nenačetla:', err);
-    calState = 'error';
+    if (!liveLoaded) calState = 'error';
   }
   renderPrices();
+  renderCalendar();
+  checkDates();
+}
+
+// Aktuální obsazenost přímo z kalendářů přes Google skript; když neodpoví, zůstane záloha z availability.json
+async function loadLiveAvailability() {
+  if (!CONFIG.inquiryUrl) return;
+  try {
+    const response = await fetch(`${CONFIG.inquiryUrl}?availability=1`, { signal: AbortSignal.timeout?.(20000) });
+    const data = await response.json();
+    if (!data.ok || !Array.isArray(data.busy)) throw new Error(data.error || 'skript nevrátil obsazenost');
+    setBusy(data.busy);
+    checkedOn = fromIso(data.checked || isoDate(today));
+    liveLoaded = true;
+    calState = 'ready';
+  } catch (err) {
+    console.warn('Aktuální obsazenost se nenačetla, platí záloha:', err);
+    return;
+  }
   renderCalendar();
   checkDates();
 }
@@ -939,4 +967,5 @@ document.getElementById('year').textContent = new Date().getFullYear();
 applyContacts();
 applyLang(detectLang());
 renderCalendar();
-loadAvailability();
+loadAvailability();       // záloha (rychlá, z webu) a kurz ČNB
+loadLiveAvailability();   // aktuální stav ze skriptu; když dorazí, přepíše zálohu

@@ -1,14 +1,15 @@
 # Web Apartment Clara na GitHub Pages.
-# Každých 10 minut načte obsazenost z Bookingu a z Google kalendáře „Přímé rezervace“
-# (adresy jsou v Settings → Secrets and variables → Actions jako BOOKING_ICAL a DIRECT_ICAL),
-# uloží ji do availability.json a při změně web znovu zveřejní. Zveřejní ho i po každé úpravě webu.
+# Načte obsazenost z Bookingu a z Google kalendáře „Přímé rezervace“
+# (adresy jsou v Settings → Secrets and variables → Actions jako BOOKING_ICAL a DIRECT_ICAL) a kurz ČNB,
+# uloží je do availability.json a při změně web znovu zveřejní. Zveřejní ho i po každé úpravě webu.
+# availability.json je záloha – aktuální obsazenost si web bere z Google skriptu (tools/poptavky.gs).
 name: Web a obsazenost
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: '3-59/10 * * * *'   # :03, :13, … (častěji GitHub nespouští spolehlivě)
+    - cron: '3-59/10 * * * *'   # :03, :13, … – GitHub ji ale reálně pouští zhruba jednou za hodinu
   workflow_dispatch:
 
 permissions:
